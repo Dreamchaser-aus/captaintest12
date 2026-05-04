@@ -8,8 +8,8 @@ from telegram import (
 from telegram.ext import (
     Application,
     CommandHandler,
-    CallbackQueryHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters
 )
@@ -18,94 +18,81 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 MAIN_BANNER = "https://i.imgur.com/4M7IWwP.jpeg"
 
+
+# =========================
+# Promotion 数据（可无限扩展）
+# =========================
 PROMOTIONS = {
     "promo_1": {
-        "name": "🔥 Promo 1",
         "image": "https://i.imgur.com/5qHnQ0R.jpeg",
         "caption": (
             "🔥 *WELCOME BONUS*\n\n"
             "✅ Deposit RM50 Free RM10\n"
             "✅ Instant Credit\n"
             "✅ Fast Withdraw\n\n"
-            "📌 *Limited Offer Today Only!*"
+            "📌 Limited Offer Today"
         ),
         "buttons": [
-            [InlineKeyboardButton("🚀 Register Now", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")]
+            [InlineKeyboardButton("🚀 Register", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Contact", url="https://t.me/your_support")]
         ]
     },
     "promo_2": {
-        "name": "🎁 Promo 2",
         "image": "https://i.imgur.com/8zQnF4T.jpeg",
         "caption": (
             "🎁 *VIP CASHBACK*\n\n"
             "✅ Weekly Cashback up to 15%\n"
-            "✅ No Turnover Required\n"
-            "✅ VIP Exclusive Reward\n\n"
-            "🔥 *Join VIP now and earn more!*"
+            "✅ No Turnover\n\n"
+            "🔥 VIP Exclusive Rewards"
         ),
         "buttons": [
             [InlineKeyboardButton("🚀 Join VIP", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("💬 Claim Cashback", url="https://t.me/your_support")]
+            [InlineKeyboardButton("💬 Claim", url="https://t.me/your_support")]
         ]
     },
     "promo_3": {
-        "name": "💎 Promo 3",
         "image": "https://i.imgur.com/2gRkPjH.jpeg",
         "caption": (
             "💎 *DAILY RELOAD BONUS*\n\n"
-            "✅ Daily Reload up to RM88\n"
-            "✅ Unlimited Claim\n\n"
-            "⚡ Deposit & get extra bonus everyday!"
+            "✅ Daily bonus up to RM88\n"
+            "✅ Unlimited claim\n\n"
+            "⚡ Deposit & earn daily"
         ),
         "buttons": [
-            [InlineKeyboardButton("🚀 Deposit Now", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("💬 Contact Admin", url="https://t.me/your_support")]
+            [InlineKeyboardButton("🚀 Deposit", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Support", url="https://t.me/your_support")]
         ]
     }
 }
 
+
 # =========================
-# 默认键盘（固定显示）
+# 主菜单（收起状态）
 # =========================
 def base_keyboard():
     return ReplyKeyboardMarkup(
-        [["📋 MENU", "📌 About Us", "📞 Contact", "🚀 Register"]],
+        [
+            ["📋 MENU"],
+            ["📌 About", "📞 Contact", "🚀 Register"]
+        ],
         resize_keyboard=True
     )
 
+
 # =========================
-# 展开 MENU（显示 Promotion + 固定功能）
+# 展开菜单（专业布局）
 # =========================
 def expanded_keyboard():
     return ReplyKeyboardMarkup(
         [
             ["🔥 Promo 1", "🎁 Promo 2"],
-            ["💎 Promo 3", "❌ Close Menu"],
-            ["📌 About Us", "📞 Contact", "🚀 Register"]
+            ["💎 Promo 3"],
+            ["⬅️ Back", "❌ Close"],
+            ["📌 About", "📞 Contact", "🚀 Register"]
         ],
         resize_keyboard=True
     )
 
-# =========================
-# 发送 Promotion
-# =========================
-async def send_promo(update: Update, promo_key: str):
-    promo = PROMOTIONS.get(promo_key)
-    if not promo:
-        await update.message.reply_text("❌ Promotion not found.")
-        return
-
-    inline_keyboard = promo["buttons"] + [
-        [InlineKeyboardButton("⬅️ Back Menu", callback_data="back_menu")]
-    ]
-
-    await update.message.reply_photo(
-        photo=promo["image"],
-        caption=promo["caption"],
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard)
-    )
 
 # =========================
 # /start
@@ -113,8 +100,7 @@ async def send_promo(update: Update, promo_key: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "👋 Welcome!\n\n"
-        "点击 📋 MENU 查看 Promotion\n"
-        "或直接点击 About / Contact / Register 👇"
+        "点击 MENU 打开 Promotion 系统 🔥"
     )
 
     await update.message.reply_photo(
@@ -123,75 +109,94 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=base_keyboard()
     )
 
+
 # =========================
-# About / Contact / Register 功能
+# Promotion 发送
+# =========================
+async def send_promo(update: Update, key: str):
+    promo = PROMOTIONS.get(key)
+    if not promo:
+        await update.message.reply_text("❌ Promo not found.")
+        return
+
+    keyboard = promo["buttons"] + [
+        [InlineKeyboardButton("⬅️ Back Menu", callback_data="back_menu")]
+    ]
+
+    await update.message.reply_photo(
+        photo=promo["image"],
+        caption=promo["caption"],
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+# =========================
+# About / Contact / Register
 # =========================
 async def send_about(update: Update):
-    text = (
+    await update.message.reply_text(
         "📌 *About Us*\n\n"
         "✅ Fast Withdraw\n"
         "✅ 24/7 Support\n"
-        "✅ Trusted Platform\n\n"
-        "🔥 Best promotions everyday!"
+        "✅ Trusted Platform",
+        parse_mode="Markdown"
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+
 
 async def send_contact(update: Update):
-    text = (
-        "📞 *Contact Us*\n\n"
-        "Telegram: @your_support\n"
-        "WhatsApp: +60 13-966 1818"
-    )
-
     keyboard = [
-        [InlineKeyboardButton("💬 Telegram Support", url="https://t.me/your_support")],
+        [InlineKeyboardButton("💬 Telegram", url="https://t.me/your_support")],
         [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")]
     ]
 
     await update.message.reply_text(
-        text,
+        "📞 *Contact Us*",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-async def send_register(update: Update):
-    text = (
-        "🚀 *Register Now*\n\n"
-        "点击下方链接注册："
-    )
 
+async def send_register(update: Update):
     keyboard = [
-        [InlineKeyboardButton("🌍 Register Link", url="https://yourwebsite.com")],
-        [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")]
+        [InlineKeyboardButton("🌍 Register Now", url="https://yourwebsite.com")]
     ]
 
     await update.message.reply_text(
-        text,
+        "🚀 *Register Now*",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+
 # =========================
-# Reply Keyboard 输入处理
+# 文本处理（Reply Keyboard）
 # =========================
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
-    # 打开 MENU
+    # MENU
     if msg == "📋 MENU":
         await update.message.reply_text(
-            "✅ Promotion Menu Opened 👇",
+            "🔥 Promotion Menu Opened",
             reply_markup=expanded_keyboard()
         )
 
-    # 关闭 MENU
-    elif msg == "❌ Close Menu":
+    # CLOSE
+    elif msg == "❌ Close":
         await update.message.reply_text(
-            "✅ Menu Closed.",
+            "Menu Closed",
             reply_markup=base_keyboard()
         )
 
-    # Promotions
+    # BACK
+    elif msg == "⬅️ Back":
+        await update.message.reply_text(
+            "Back to Menu",
+            reply_markup=expanded_keyboard()
+        )
+
+    # PROMO
     elif msg == "🔥 Promo 1":
         await send_promo(update, "promo_1")
 
@@ -201,24 +206,27 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg == "💎 Promo 3":
         await send_promo(update, "promo_3")
 
-    # About/Contact/Register
-    elif msg == "📌 About Us":
+    # ABOUT
+    elif msg == "📌 About":
         await send_about(update)
 
+    # CONTACT
     elif msg == "📞 Contact":
         await send_contact(update)
 
+    # REGISTER
     elif msg == "🚀 Register":
         await send_register(update)
 
     else:
         await update.message.reply_text(
-            "请选择下方按钮操作 👇",
+            "请点击 MENU 使用系统",
             reply_markup=base_keyboard()
         )
 
+
 # =========================
-# Inline 回调按钮
+# Inline button handler
 # =========================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -226,16 +234,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "back_menu":
         await query.message.reply_text(
-            "✅ 返回 Promotion Menu 👇",
+            "Back to Menu",
             reply_markup=expanded_keyboard()
         )
 
+
 # =========================
-# main
+# MAIN
 # =========================
 def main():
     if not BOT_TOKEN:
-        raise ValueError("❌ BOT_TOKEN not found. Please set BOT_TOKEN in Railway variables.")
+        raise ValueError("BOT_TOKEN not set")
 
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -243,8 +252,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("✅ Bot is running...")
+    print("Bot running...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

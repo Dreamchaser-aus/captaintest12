@@ -3,8 +3,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove
+    ReplyKeyboardMarkup
 )
 from telegram.ext import (
     Application,
@@ -67,33 +66,29 @@ PROMOTIONS = {
 }
 
 # =========================
-# Reply Keyboard - 初始（只显示 MENU）
+# 默认键盘（固定显示）
 # =========================
-def collapsed_menu():
+def base_keyboard():
     return ReplyKeyboardMarkup(
-        [["📋 MENU"]],
-        resize_keyboard=True,
-        one_time_keyboard=False
+        [["📋 MENU", "📌 About Us", "📞 Contact", "🚀 Register"]],
+        resize_keyboard=True
     )
 
 # =========================
-# Reply Keyboard - 展开菜单
+# 展开 MENU（显示 Promotion + 固定功能）
 # =========================
-def expanded_menu():
-    keyboard = [
-        ["🔥 Promo 1", "🎁 Promo 2"],
-        ["💎 Promo 3", "📌 About Us"],
-        ["📞 Contact", "🚀 Register"],
-        ["❌ Close Menu"]
-    ]
+def expanded_keyboard():
     return ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=False
+        [
+            ["🔥 Promo 1", "🎁 Promo 2"],
+            ["💎 Promo 3", "❌ Close Menu"],
+            ["📌 About Us", "📞 Contact", "🚀 Register"]
+        ],
+        resize_keyboard=True
     )
 
 # =========================
-# 发送 Promotion 广告图 + 文案
+# 发送 Promotion
 # =========================
 async def send_promo(update: Update, promo_key: str):
     promo = PROMOTIONS.get(promo_key)
@@ -118,33 +113,82 @@ async def send_promo(update: Update, promo_key: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "👋 Welcome!\n\n"
-        "点击下方 📋 MENU 按钮打开活动菜单 🔥"
+        "点击 📋 MENU 查看 Promotion\n"
+        "或直接点击 About / Contact / Register 👇"
     )
 
     await update.message.reply_photo(
         photo=MAIN_BANNER,
         caption=text,
-        reply_markup=collapsed_menu()
+        reply_markup=base_keyboard()
     )
 
 # =========================
-# 处理 Reply Keyboard 输入
+# About / Contact / Register 功能
+# =========================
+async def send_about(update: Update):
+    text = (
+        "📌 *About Us*\n\n"
+        "✅ Fast Withdraw\n"
+        "✅ 24/7 Support\n"
+        "✅ Trusted Platform\n\n"
+        "🔥 Best promotions everyday!"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+async def send_contact(update: Update):
+    text = (
+        "📞 *Contact Us*\n\n"
+        "Telegram: @your_support\n"
+        "WhatsApp: +60 13-966 1818"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("💬 Telegram Support", url="https://t.me/your_support")],
+        [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")]
+    ]
+
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def send_register(update: Update):
+    text = (
+        "🚀 *Register Now*\n\n"
+        "点击下方链接注册："
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("🌍 Register Link", url="https://yourwebsite.com")],
+        [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")]
+    ]
+
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+# =========================
+# Reply Keyboard 输入处理
 # =========================
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
-    # 展开菜单
+    # 打开 MENU
     if msg == "📋 MENU":
         await update.message.reply_text(
-            "✅ Menu Opened. 请选择 Promotion 👇",
-            reply_markup=expanded_menu()
+            "✅ Promotion Menu Opened 👇",
+            reply_markup=expanded_keyboard()
         )
 
-    # 关闭菜单
+    # 关闭 MENU
     elif msg == "❌ Close Menu":
         await update.message.reply_text(
             "✅ Menu Closed.",
-            reply_markup=collapsed_menu()
+            reply_markup=base_keyboard()
         )
 
     # Promotions
@@ -157,58 +201,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg == "💎 Promo 3":
         await send_promo(update, "promo_3")
 
-    # About Us
+    # About/Contact/Register
     elif msg == "📌 About Us":
-        text = (
-            "📌 *About Us*\n\n"
-            "✅ Fast Withdraw\n"
-            "✅ 24/7 Support\n"
-            "✅ Trusted Platform\n\n"
-            "🔥 Trusted by thousands of players!"
-        )
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await send_about(update)
 
-    # Contact
     elif msg == "📞 Contact":
-        text = (
-            "📞 *Contact Us*\n\n"
-            "Telegram: @your_support\n"
-            "WhatsApp: +60 13-966 1818"
-        )
-        keyboard = [
-            [InlineKeyboardButton("💬 Telegram Support", url="https://t.me/your_support")],
-            [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")]
-        ]
-        await update.message.reply_text(
-            text,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await send_contact(update)
 
-    # Register
     elif msg == "🚀 Register":
-        text = (
-            "🚀 *Register Now*\n\n"
-            "点击下面按钮注册："
-        )
-        keyboard = [
-            [InlineKeyboardButton("🌍 Register Link", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")]
-        ]
-        await update.message.reply_text(
-            text,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await send_register(update)
 
     else:
         await update.message.reply_text(
-            "请点击 📋 MENU 打开菜单 👇",
-            reply_markup=collapsed_menu()
+            "请选择下方按钮操作 👇",
+            reply_markup=base_keyboard()
         )
 
 # =========================
-# Inline 回调按钮处理
+# Inline 回调按钮
 # =========================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -216,8 +226,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "back_menu":
         await query.message.reply_text(
-            "✅ 返回菜单，请继续选择 👇",
-            reply_markup=expanded_menu()
+            "✅ 返回 Promotion Menu 👇",
+            reply_markup=expanded_keyboard()
         )
 
 # =========================

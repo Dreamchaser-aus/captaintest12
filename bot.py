@@ -2,159 +2,227 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # 从 Railway env 读取 token
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-WELCOME_IMAGE_URL = "https://i.imgur.com/4M7IWwP.jpeg"
+# =========================
+# 主菜单 Banner 图
+# =========================
+MAIN_BANNER = "https://i.imgur.com/4M7IWwP.jpeg"
+
+# =========================
+# Promotion 配置中心
+# 以后你只需要改这里即可
+# =========================
+PROMOTIONS = {
+    "promo_1": {
+        "title": "🔥 Promo 1 - Welcome Bonus",
+        "image": "https://i.imgur.com/5qHnQ0R.jpeg",
+        "caption": (
+            "🔥 *WELCOME BONUS*\n\n"
+            "✅ Deposit RM50 Free RM10\n"
+            "✅ Instant Credit\n"
+            "✅ Fast Withdraw\n\n"
+            "📌 *Limited Offer Today Only!*"
+        ),
+        "buttons": [
+            [InlineKeyboardButton("🚀 Register Now", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")],
+        ]
+    },
+    "promo_2": {
+        "title": "🎁 Promo 2 - VIP Cashback",
+        "image": "https://i.imgur.com/8zQnF4T.jpeg",
+        "caption": (
+            "🎁 *VIP CASHBACK*\n\n"
+            "✅ Weekly Cashback up to 15%\n"
+            "✅ No Turnover Required\n"
+            "✅ VIP Exclusive Reward\n\n"
+            "🔥 *Join VIP now and earn more!*"
+        ),
+        "buttons": [
+            [InlineKeyboardButton("🚀 Join VIP", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Claim Cashback", url="https://t.me/your_support")],
+        ]
+    },
+    "promo_3": {
+        "title": "💎 Promo 3 - Daily Reload",
+        "image": "https://i.imgur.com/2gRkPjH.jpeg",
+        "caption": (
+            "💎 *DAILY RELOAD BONUS*\n\n"
+            "✅ Daily Reload up to RM88\n"
+            "✅ Unlimited Claim\n"
+            "✅ Suitable for all members\n\n"
+            "⚡ Deposit & get extra bonus everyday!"
+        ),
+        "buttons": [
+            [InlineKeyboardButton("🚀 Deposit Now", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Contact Admin", url="https://t.me/your_support")],
+        ]
+    }
+}
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================
+# 主菜单键盘（支持分页扩展）
+# =========================
+def main_menu_keyboard():
     keyboard = [
         [
             InlineKeyboardButton("🔥 Promo 1", callback_data="promo_1"),
             InlineKeyboardButton("🎁 Promo 2", callback_data="promo_2")
         ],
         [
-            InlineKeyboardButton("📌 About Us", callback_data="about_us"),
-            InlineKeyboardButton("📞 Contact", callback_data="contact")
+            InlineKeyboardButton("💎 Promo 3", callback_data="promo_3"),
+            InlineKeyboardButton("📌 About Us", callback_data="about_us")
         ],
         [
-            InlineKeyboardButton("🚀 Join Now", callback_data="join_now")
+            InlineKeyboardButton("📞 Contact", callback_data="contact"),
+            InlineKeyboardButton("🚀 Register", callback_data="register")
         ]
     ]
+    return InlineKeyboardMarkup(keyboard)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
 
+# =========================
+# /start
+# =========================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption_text = (
-        "👋 Welcome!\n\n"
-        "请选择你要查看的内容：\n"
-        "Click the buttons below 👇"
+        "👋 *Welcome to our Official Promotion Center!*\n\n"
+        "请选择你要查看的 Promotion 👇\n"
+        "Click menu below to explore bonus & rewards 🔥"
     )
 
     await update.message.reply_photo(
-        photo=WELCOME_IMAGE_URL,
+        photo=MAIN_BANNER,
         caption=caption_text,
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard()
+    )
+
+
+# =========================
+# 显示 Promotion 详情（独立图片+文案）
+# =========================
+async def show_promotion(query, promo_key: str):
+    promo = PROMOTIONS.get(promo_key)
+
+    if not promo:
+        await query.message.reply_text("❌ Promotion not found.")
+        return
+
+    keyboard = promo["buttons"] + [[InlineKeyboardButton("⬅️ Back to Menu", callback_data="back_home")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # 直接发送新图片广告（更像真实营销bot）
+    await query.message.reply_photo(
+        photo=promo["image"],
+        caption=promo["caption"],
+        parse_mode="Markdown",
         reply_markup=reply_markup
     )
 
 
+# =========================
+# 按钮回调处理
+# =========================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
 
-    if data == "promo_1":
-        text = (
-            "🔥 Promo 1 活动内容\n\n"
-            "✅ Deposit RM50 Free RM10\n"
-            "✅ Valid Today Only\n\n"
-            "📌 点击 Join Now 立刻参与"
-        )
-        keyboard = [
-            [InlineKeyboardButton("🚀 Join Now", url="https://google.com")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_home")]
-        ]
-        await query.edit_message_caption(
-            caption=text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    # Promotion
+    if data in PROMOTIONS:
+        await show_promotion(query, data)
 
-    elif data == "promo_2":
-        text = (
-            "🎁 Promo 2 活动内容\n\n"
-            "✅ Deposit RM100 Free RM30\n"
-            "✅ Unlimited Claim\n\n"
-            "⚡ 速度来拿奖励"
-        )
-        keyboard = [
-            [InlineKeyboardButton("🚀 Join Now", url="https://google.com")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_home")]
-        ]
-        await query.edit_message_caption(
-            caption=text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
+    # About Us
     elif data == "about_us":
         text = (
-            "📌 About Us\n\n"
-            "我们提供最稳定的服务与最快的出款。\n"
-            "24小时在线客服。\n\n"
-            "🔥 Trusted Platform | Fast Withdraw"
+            "📌 *About Us*\n\n"
+            "我们提供最稳定的游戏体验与最快的提款服务。\n\n"
+            "✅ Fast Withdraw\n"
+            "✅ 24/7 Support\n"
+            "✅ Trusted Platform\n\n"
+            "🔥 Join us and win everyday!"
         )
+
         keyboard = [
-            [InlineKeyboardButton("📞 Contact", callback_data="contact")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_home")]
+            [InlineKeyboardButton("🚀 Register Now", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="back_home")]
         ]
-        await query.edit_message_caption(
+
+        await query.message.reply_photo(
+            photo="https://i.imgur.com/4M7IWwP.jpeg",
             caption=text,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    # Contact
     elif data == "contact":
         text = (
-            "📞 Contact Us\n\n"
-            "WhatsApp: +60 13-966 1818\n"
-            "Telegram Support: @your_support\n\n"
-            "点击下面按钮直接联系 👇"
+            "📞 *Contact Us*\n\n"
+            "💬 Telegram Support: @your_support\n"
+            "📲 WhatsApp: +60 13-966 1818\n\n"
+            "点击下面按钮即可直接联系 👇"
         )
+
         keyboard = [
-            [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")],
             [InlineKeyboardButton("💬 Telegram Support", url="https://t.me/your_support")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_home")]
+            [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="back_home")]
         ]
-        await query.edit_message_caption(
-            caption=text,
+
+        await query.message.reply_text(
+            text=text,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-    elif data == "join_now":
+    # Register
+    elif data == "register":
         text = (
-            "🚀 Join Now\n\n"
-            "点击下方链接马上注册：\n\n"
-            "👉 https://yourwebsite.com\n\n"
-            "注册后联系管理员即可领取奖励 🎁"
+            "🚀 *Register Now*\n\n"
+            "点击下方链接注册账号：\n\n"
+            "🌍 https://yourwebsite.com\n\n"
+            "注册后联系管理员领取奖励 🎁"
         )
+
         keyboard = [
-            [InlineKeyboardButton("🌍 Register Now", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_home")]
+            [InlineKeyboardButton("🌍 Register Link", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/your_support")],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="back_home")]
         ]
-        await query.edit_message_caption(
-            caption=text,
+
+        await query.message.reply_text(
+            text=text,
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    # Back Home
     elif data == "back_home":
-        keyboard = [
-            [
-                InlineKeyboardButton("🔥 Promo 1", callback_data="promo_1"),
-                InlineKeyboardButton("🎁 Promo 2", callback_data="promo_2")
-            ],
-            [
-                InlineKeyboardButton("📌 About Us", callback_data="about_us"),
-                InlineKeyboardButton("📞 Contact", callback_data="contact")
-            ],
-            [
-                InlineKeyboardButton("🚀 Join Now", callback_data="join_now")
-            ]
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
         caption_text = (
-            "👋 Welcome Back!\n\n"
-            "请选择你要查看的内容：\n"
-            "Click the buttons below 👇"
+            "👋 *Promotion Menu*\n\n"
+            "请选择你要查看的 Promotion 👇\n"
+            "Click menu below to explore bonus & rewards 🔥"
         )
 
-        await query.edit_message_caption(
+        await query.message.reply_photo(
+            photo=MAIN_BANNER,
             caption=caption_text,
-            reply_markup=reply_markup
+            parse_mode="Markdown",
+            reply_markup=main_menu_keyboard()
         )
 
 
+# =========================
+# main
+# =========================
 def main():
     if not BOT_TOKEN:
-        raise ValueError("❌ BOT_TOKEN not found. Please set BOT_TOKEN in Railway environment variables.")
+        raise ValueError("❌ BOT_TOKEN not found. Please set BOT_TOKEN in Railway variables.")
 
     app = Application.builder().token(BOT_TOKEN).build()
 

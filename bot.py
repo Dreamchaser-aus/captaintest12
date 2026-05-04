@@ -80,7 +80,7 @@ def expanded_keyboard():
         [
             ["🔥 Promo 1", "🎁 Promo 2"],
             ["💎 Promo 3", "📌 About"],
-            ["❌ Close"],
+            ["⬅️ Back Menu"],
             ["📞 Contact", "🚀 Register"]
         ],
         resize_keyboard=True
@@ -145,17 +145,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=expanded_keyboard()
         )
 
-    elif msg == "❌ Close":
+    elif msg == "⬅️ Back Menu":
         await update.message.reply_text(
             "Menu Closed",
             reply_markup=base_keyboard()
         )
 
-    elif msg == "⬅️ Back":
-        await update.message.reply_text(
-            "Back to Menu",
-            reply_markup=expanded_keyboard()
-        )
 
     elif msg == "🔥 Promo 1":
         await send_promo(update, "promo_1")

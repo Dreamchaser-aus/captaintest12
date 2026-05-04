@@ -20,7 +20,7 @@ MAIN_BANNER = "https://i.imgur.com/4M7IWwP.jpeg"
 
 
 # =========================
-# Promotion 数据（可无限扩展）
+# Promotion 数据
 # =========================
 PROMOTIONS = {
     "promo_1": {
@@ -29,8 +29,7 @@ PROMOTIONS = {
             "🔥 *WELCOME BONUS*\n\n"
             "✅ Deposit RM50 Free RM10\n"
             "✅ Instant Credit\n"
-            "✅ Fast Withdraw\n\n"
-            "📌 Limited Offer Today"
+            "✅ Fast Withdraw"
         ),
         "buttons": [
             [InlineKeyboardButton("🚀 Register", url="https://yourwebsite.com")],
@@ -41,22 +40,20 @@ PROMOTIONS = {
         "image": "https://i.imgur.com/8zQnF4T.jpeg",
         "caption": (
             "🎁 *VIP CASHBACK*\n\n"
-            "✅ Weekly Cashback up to 15%\n"
-            "✅ No Turnover\n\n"
-            "🔥 VIP Exclusive Rewards"
+            "✅ Weekly Cashback\n"
+            "✅ No Turnover"
         ),
         "buttons": [
-            [InlineKeyboardButton("🚀 Join VIP", url="https://yourwebsite.com")],
-            [InlineKeyboardButton("💬 Claim", url="https://t.me/your_support")]
+            [InlineKeyboardButton("🚀 Join", url="https://yourwebsite.com")],
+            [InlineKeyboardButton("💬 Support", url="https://t.me/your_support")]
         ]
     },
     "promo_3": {
         "image": "https://i.imgur.com/2gRkPjH.jpeg",
         "caption": (
-            "💎 *DAILY RELOAD BONUS*\n\n"
-            "✅ Daily bonus up to RM88\n"
-            "✅ Unlimited claim\n\n"
-            "⚡ Deposit & earn daily"
+            "💎 *DAILY BONUS*\n\n"
+            "✅ Daily reward\n"
+            "⚡ Fast payout"
         ),
         "buttons": [
             [InlineKeyboardButton("🚀 Deposit", url="https://yourwebsite.com")],
@@ -67,21 +64,18 @@ PROMOTIONS = {
 
 
 # =========================
-# 主菜单（收起状态）
+# Keyboard
 # =========================
 def base_keyboard():
     return ReplyKeyboardMarkup(
         [
-            ["📋 MENU", "📌 About"],
-            ["📞 Contact", "🚀 Register"]
+            ["📋 MENU"],
+            ["📌 About", "📞 Contact", "🚀 Register"]
         ],
         resize_keyboard=True
     )
 
 
-# =========================
-# 展开菜单（专业布局）
-# =========================
 def expanded_keyboard():
     return ReplyKeyboardMarkup(
         [
@@ -95,12 +89,17 @@ def expanded_keyboard():
 
 
 # =========================
-# /start
+# /start（只在这里显示用户信息）
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    username = user.username if user.username else user.first_name
+    user_id = user.id
+
     text = (
-        "👋 Welcome!\n\n"
-        "点击 MENU 打开 Promotion 系统 🔥"
+        f"👋 Welcome {username}\n"
+        f"🆔 Your ID: {user_id}\n\n"
+        "点击 MENU 开始浏览 Promotion 🔥"
     )
 
     await update.message.reply_photo(
@@ -115,9 +114,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 async def send_promo(update: Update, key: str):
     promo = PROMOTIONS.get(key)
-    if not promo:
-        await update.message.reply_text("❌ Promo not found.")
-        return
 
     keyboard = promo["buttons"] + [
         [InlineKeyboardButton("⬅️ Back Menu", callback_data="back_menu")]
@@ -132,71 +128,29 @@ async def send_promo(update: Update, key: str):
 
 
 # =========================
-# About / Contact / Register
-# =========================
-async def send_about(update: Update):
-    await update.message.reply_text(
-        "📌 *About Us*\n\n"
-        "✅ Fast Withdraw\n"
-        "✅ 24/7 Support\n"
-        "✅ Trusted Platform",
-        parse_mode="Markdown"
-    )
-
-
-async def send_contact(update: Update):
-    keyboard = [
-        [InlineKeyboardButton("💬 Telegram", url="https://t.me/your_support")],
-        [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")]
-    ]
-
-    await update.message.reply_text(
-        "📞 *Contact Us*",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-
-async def send_register(update: Update):
-    keyboard = [
-        [InlineKeyboardButton("🌍 Register Now", url="https://yourwebsite.com")]
-    ]
-
-    await update.message.reply_text(
-        "🚀 *Register Now*",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-
-# =========================
-# 文本处理（Reply Keyboard）
+# Reply Keyboard 处理
 # =========================
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
-    # MENU
     if msg == "📋 MENU":
         await update.message.reply_text(
             "🔥 Promotion Menu Opened",
             reply_markup=expanded_keyboard()
         )
 
-    # CLOSE
     elif msg == "❌ Close":
         await update.message.reply_text(
             "Menu Closed",
             reply_markup=base_keyboard()
         )
 
-    # BACK
     elif msg == "⬅️ Back":
         await update.message.reply_text(
             "Back to Menu",
             reply_markup=expanded_keyboard()
         )
 
-    # PROMO
     elif msg == "🔥 Promo 1":
         await send_promo(update, "promo_1")
 
@@ -206,21 +160,35 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg == "💎 Promo 3":
         await send_promo(update, "promo_3")
 
-    # ABOUT
     elif msg == "📌 About":
-        await send_about(update)
+        await update.message.reply_text(
+            "📌 About Us\n\nFast Withdraw | 24/7 Support"
+        )
 
-    # CONTACT
     elif msg == "📞 Contact":
-        await send_contact(update)
+        keyboard = [
+            [InlineKeyboardButton("💬 Telegram", url="https://t.me/your_support")],
+            [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/60139661818")]
+        ]
 
-    # REGISTER
+        await update.message.reply_text(
+            "📞 Contact Us",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     elif msg == "🚀 Register":
-        await send_register(update)
+        keyboard = [
+            [InlineKeyboardButton("🌍 Register", url="https://yourwebsite.com")]
+        ]
+
+        await update.message.reply_text(
+            "🚀 Register Now",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     else:
         await update.message.reply_text(
-            "请点击 MENU 使用系统",
+            "Please use MENU",
             reply_markup=base_keyboard()
         )
 
@@ -240,7 +208,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# MAIN
+# main
 # =========================
 def main():
     if not BOT_TOKEN:

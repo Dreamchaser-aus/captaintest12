@@ -79,9 +79,9 @@ def expanded_keyboard():
     return ReplyKeyboardMarkup(
         [
             ["🔥 Promo 1", "🎁 Promo 2"],
-            ["💎 Promo 3"],
-            ["⬅️ Back", "❌ Close"],
-            ["📌 About", "📞 Contact", "🚀 Register"]
+            ["💎 Promo 3", "📌 About"],
+            ["❌ Close"],
+            ["📞 Contact", "🚀 Register"]
         ],
         resize_keyboard=True
     )

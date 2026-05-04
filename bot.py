@@ -72,8 +72,8 @@ PROMOTIONS = {
 def base_keyboard():
     return ReplyKeyboardMarkup(
         [
-            ["📋 MENU"],
-            ["📌 About", "📞 Contact", "🚀 Register"]
+            ["📋 MENU"， "📌 About"],
+            ["📞 Contact", "🚀 Register"]
         ],
         resize_keyboard=True
     )

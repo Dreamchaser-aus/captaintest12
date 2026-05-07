@@ -39,7 +39,9 @@ flask_app.secret_key = os.getenv("SECRET_KEY", "supersecretkey123")
 # DATABASE FUNCTIONS
 # =========================
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL not found. Please set Railway PostgreSQL DATABASE_URL in Variables.")
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
 def init_db():

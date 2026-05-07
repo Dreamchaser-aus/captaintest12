@@ -1,8 +1,7 @@
 import os
-import json
 import threading
 import psycopg2
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session
 
 from telegram import (
     Update,
@@ -20,23 +19,24 @@ from telegram.ext import (
 )
 
 # =========================
-# ENV SETTINGS
+# ENV
 # =========================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
 
 # =========================
-# FLASK APP
+# FLASK
 # =========================
 flask_app = Flask(__name__)
-flask_app.secret_key = os.getenv("SECRET_KEY", "supersecretkey123")
+flask_app.secret_key = SECRET_KEY
 
 
 # =========================
-# DATABASE FUNCTIONS
+# DB
 # =========================
 def get_db_connection():
     if not DATABASE_URL:
@@ -48,6 +48,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # settings table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -55,45 +56,106 @@ def init_db():
         )
     """)
 
+    # promos table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promos (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            image_url TEXT NOT NULL,
+            caption TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+    """)
+
+    # promo buttons
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_buttons (
+            id SERIAL PRIMARY KEY,
+            promo_id INT REFERENCES promos(id) ON DELETE CASCADE,
+            text TEXT NOT NULL,
+            url TEXT,
+            sort_order INT DEFAULT 0
+        )
+    """)
+
+    # banner inline buttons
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS banner_buttons (
+            id SERIAL PRIMARY KEY,
+            text TEXT NOT NULL,
+            url TEXT,
+            callback_data TEXT,
+            sort_order INT DEFAULT 0
+        )
+    """)
+
     conn.commit()
 
-    # default values insert
-    default_settings = {
+    # default settings
+    defaults = {
         "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
         "about_text": "📌 About Us\n\nFast Withdraw | 24/7 Support",
         "register_url": "https://yourwebsite.com",
         "telegram_support": "https://t.me/your_support",
-        "whatsapp_url": "https://wa.me/60139661818",
-        "promo_1": json.dumps({
-            "image": "https://i.imgur.com/5qHnQ0R.jpeg",
-            "caption": "🔥 WELCOME BONUS\n\nDeposit RM50 → Free RM10\nFast Withdraw ⚡",
-            "button1_text": "🚀 Register",
-            "button1_url": "https://yourwebsite.com",
-            "button2_text": "💬 Contact",
-            "button2_url": "https://t.me/your_support"
-        }),
-        "promo_2": json.dumps({
-            "image": "https://i.imgur.com/8zQnF4T.jpeg",
-            "caption": "🎁 VIP CASHBACK\n\nWeekly cashback up to 15%\nNo turnover required",
-            "button1_text": "🚀 Join",
-            "button1_url": "https://yourwebsite.com",
-            "button2_text": "💬 Support",
-            "button2_url": "https://t.me/your_support"
-        }),
-        "promo_3": json.dumps({
-            "image": "https://i.imgur.com/2gRkPjH.jpeg",
-            "caption": "💎 DAILY BONUS\n\nDaily reward system\nFast payout ⚡",
-            "button1_text": "🚀 Deposit",
-            "button1_url": "https://yourwebsite.com",
-            "button2_text": "💬 Support",
-            "button2_url": "https://t.me/your_support"
-        })
+        "whatsapp_url": "https://wa.me/60139661818"
     }
 
-    for k, v in default_settings.items():
+    for k, v in defaults.items():
         cur.execute("SELECT key FROM settings WHERE key=%s", (k,))
         if not cur.fetchone():
             cur.execute("INSERT INTO settings (key, value) VALUES (%s, %s)", (k, v))
+
+    # insert default promos if empty
+    cur.execute("SELECT COUNT(*) FROM promos")
+    count = cur.fetchone()[0]
+
+    if count == 0:
+        cur.execute("""
+            INSERT INTO promos (title, image_url, caption)
+            VALUES
+            (%s, %s, %s),
+            (%s, %s, %s),
+            (%s, %s, %s)
+            RETURNING id
+        """, (
+            "🔥 Promo 1", "https://i.imgur.com/5qHnQ0R.jpeg",
+            "🔥 WELCOME BONUS\n\nDeposit RM50 → Free RM10\nFast Withdraw ⚡",
+
+            "🎁 Promo 2", "https://i.imgur.com/8zQnF4T.jpeg",
+            "🎁 VIP CASHBACK\n\nWeekly cashback up to 15%\nNo turnover required",
+
+            "💎 Promo 3", "https://i.imgur.com/2gRkPjH.jpeg",
+            "💎 DAILY BONUS\n\nDaily reward system\nFast payout ⚡"
+        ))
+
+        promo_ids = cur.fetchall()
+
+        for pid in promo_ids:
+            promo_id = pid[0]
+            cur.execute("""
+                INSERT INTO promo_buttons (promo_id, text, url, sort_order)
+                VALUES (%s, %s, %s, %s)
+            """, (promo_id, "🚀 Register", "https://yourwebsite.com", 1))
+
+            cur.execute("""
+                INSERT INTO promo_buttons (promo_id, text, url, sort_order)
+                VALUES (%s, %s, %s, %s)
+            """, (promo_id, "💬 Support", "https://t.me/your_support", 2))
+
+    # insert default banner buttons if empty
+    cur.execute("SELECT COUNT(*) FROM banner_buttons")
+    bcount = cur.fetchone()[0]
+
+    if bcount == 0:
+        cur.execute("""
+            INSERT INTO banner_buttons (text, url, callback_data, sort_order)
+            VALUES (%s, %s, %s, %s)
+        """, ("🚀 Register", "https://yourwebsite.com", None, 1))
+
+        cur.execute("""
+            INSERT INTO banner_buttons (text, url, callback_data, sort_order)
+            VALUES (%s, %s, %s, %s)
+        """, ("📋 Menu", None, "open_menu", 2))
 
     conn.commit()
     cur.close()
@@ -107,7 +169,7 @@ def get_setting(key):
     row = cur.fetchone()
     cur.close()
     conn.close()
-    return row[0] if row else None
+    return row[0] if row else ""
 
 
 def set_setting(key, value):
@@ -124,13 +186,58 @@ def set_setting(key, value):
     conn.close()
 
 
-def load_promotions():
-    promos = {}
-    for i in range(1, 4):
-        raw = get_setting(f"promo_{i}")
-        if raw:
-            promos[f"promo_{i}"] = json.loads(raw)
-    return promos
+def get_promos(active_only=True):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if active_only:
+        cur.execute("SELECT id, title, image_url, caption FROM promos WHERE is_active=TRUE ORDER BY id ASC")
+    else:
+        cur.execute("SELECT id, title, image_url, caption, is_active FROM promos ORDER BY id ASC")
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def get_promo_by_title(title):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, title, image_url, caption FROM promos WHERE title=%s AND is_active=TRUE", (title,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+
+def get_promo_buttons(promo_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, text, url
+        FROM promo_buttons
+        WHERE promo_id=%s
+        ORDER BY sort_order ASC
+    """, (promo_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def get_banner_buttons():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, text, url, callback_data
+        FROM banner_buttons
+        ORDER BY sort_order ASC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
 
 # =========================
@@ -147,15 +254,24 @@ def base_keyboard():
 
 
 def expanded_keyboard():
-    return ReplyKeyboardMarkup(
-        [
-            ["🔥 Promo 1", "🎁 Promo 2"],
-            ["💎 Promo 3", "📌 About"],
-            ["⬅️ Back Menu"],
-            ["📞 Contact", "🚀 Register"]
-        ],
-        resize_keyboard=True
-    )
+    promos = get_promos(active_only=True)
+
+    promo_buttons = []
+    row = []
+    for i, promo in enumerate(promos, start=1):
+        row.append(promo[1])  # promo title
+        if len(row) == 2:
+            promo_buttons.append(row)
+            row = []
+
+    if row:
+        promo_buttons.append(row)
+
+    promo_buttons.append(["📌 About"])
+    promo_buttons.append(["⬅️ Back Menu"])
+    promo_buttons.append(["📞 Contact", "🚀 Register"])
+
+    return ReplyKeyboardMarkup(promo_buttons, resize_keyboard=True)
 
 
 # =========================
@@ -167,7 +283,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
 
     MAIN_BANNER = get_setting("main_banner")
-    register_url = get_setting("register_url")
 
     text = (
         f"👋 Welcome {username}\n"
@@ -176,37 +291,40 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Choose action below:"
     )
 
-    keyboard = [
-        [
-            InlineKeyboardButton("🚀 Register", url=register_url),
-            InlineKeyboardButton("📋 Menu", callback_data="open_menu")
-        ]
-    ]
+    buttons = []
+    banner_buttons = get_banner_buttons()
+
+    row = []
+    for b in banner_buttons:
+        _id, text_btn, url, callback_data = b
+        if url:
+            row.append(InlineKeyboardButton(text_btn, url=url))
+        elif callback_data:
+            row.append(InlineKeyboardButton(text_btn, callback_data=callback_data))
+
+    if row:
+        buttons.append(row)
 
     await update.message.reply_photo(
         photo=MAIN_BANNER,
         caption=text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
-async def send_promo(update: Update, key: str):
-    promos = load_promotions()
-    promo = promos.get(key)
+async def send_promo(update: Update, promo_id: int, image_url: str, caption: str):
+    promo_btns = get_promo_buttons(promo_id)
 
-    if not promo:
-        await update.message.reply_text("Promo not found.")
-        return
+    keyboard = []
+    for btn in promo_btns:
+        _, text_btn, url = btn
+        keyboard.append([InlineKeyboardButton(text_btn, url=url)])
 
-    keyboard = [
-        [InlineKeyboardButton(promo["button1_text"], url=promo["button1_url"])],
-        [InlineKeyboardButton(promo["button2_text"], url=promo["button2_url"])],
-        [InlineKeyboardButton("⬅️ Back Menu", callback_data="back_menu")]
-    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Back Menu", callback_data="back_menu")])
 
     await update.message.reply_photo(
-        photo=promo["image"],
-        caption=promo["caption"],
+        photo=image_url,
+        caption=caption,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -215,31 +333,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
     if msg == "📋 MENU":
-        await update.message.reply_text(
-            "🔥 Menu Opened",
-            reply_markup=expanded_keyboard()
-        )
+        await update.message.reply_text("🔥 Menu Opened", reply_markup=expanded_keyboard())
+        return
 
-    elif msg == "⬅️ Back Menu":
-        await update.message.reply_text(
-            "Menu Closed",
-            reply_markup=base_keyboard()
-        )
+    if msg == "⬅️ Back Menu":
+        await update.message.reply_text("Menu Closed", reply_markup=base_keyboard())
+        return
 
-    elif msg == "🔥 Promo 1":
-        await send_promo(update, "promo_1")
-
-    elif msg == "🎁 Promo 2":
-        await send_promo(update, "promo_2")
-
-    elif msg == "💎 Promo 3":
-        await send_promo(update, "promo_3")
-
-    elif msg == "📌 About":
+    if msg == "📌 About":
         about_text = get_setting("about_text")
         await update.message.reply_text(about_text)
+        return
 
-    elif msg == "📞 Contact":
+    if msg == "📞 Contact":
         telegram_support = get_setting("telegram_support")
         whatsapp_url = get_setting("whatsapp_url")
 
@@ -248,19 +354,21 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💬 WhatsApp", url=whatsapp_url)]
         ]
 
-        await update.message.reply_text(
-            "📞 Contact Us",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.message.reply_text("📞 Contact Us", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
 
-    elif msg == "🚀 Register":
+    if msg == "🚀 Register":
         register_url = get_setting("register_url")
         keyboard = [[InlineKeyboardButton("🌍 Register", url=register_url)]]
+        await update.message.reply_text("🚀 Register Now", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
 
-        await update.message.reply_text(
-            "🚀 Register Now",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    # check if msg is promo title
+    promo = get_promo_by_title(msg)
+    if promo:
+        promo_id, title, image_url, caption = promo
+        await send_promo(update, promo_id, image_url, caption)
+        return
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -268,16 +376,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "open_menu":
-        await query.message.reply_text(
-            "🔥 Promotion Menu",
-            reply_markup=expanded_keyboard()
-        )
+        await query.message.reply_text("🔥 Promotion Menu", reply_markup=expanded_keyboard())
 
     elif query.data == "back_menu":
-        await query.message.reply_text(
-            "Back to Menu",
-            reply_markup=expanded_keyboard()
-        )
+        await query.message.reply_text("Back to Menu", reply_markup=expanded_keyboard())
 
 
 def run_bot():
@@ -295,8 +397,12 @@ def run_bot():
 
 
 # =========================
-# FLASK ADMIN ROUTES
+# ADMIN AUTH
 # =========================
+def require_login():
+    return session.get("admin_logged_in")
+
+
 @flask_app.route("/")
 def home():
     return redirect("/admin")
@@ -323,55 +429,245 @@ def admin_logout():
     return redirect("/admin/login")
 
 
+# =========================
+# DASHBOARD (SETTINGS)
+# =========================
 @flask_app.route("/admin", methods=["GET", "POST"])
 def admin_dashboard():
-    if not session.get("admin_logged_in"):
+    if not require_login():
         return redirect("/admin/login")
 
     if request.method == "POST":
-        set_setting("main_banner", request.form.get("main_banner"))
-        set_setting("about_text", request.form.get("about_text"))
-        set_setting("register_url", request.form.get("register_url"))
-        set_setting("telegram_support", request.form.get("telegram_support"))
-        set_setting("whatsapp_url", request.form.get("whatsapp_url"))
-
-        for i in range(1, 4):
-            promo_data = {
-                "image": request.form.get(f"promo_{i}_image"),
-                "caption": request.form.get(f"promo_{i}_caption"),
-                "button1_text": request.form.get(f"promo_{i}_btn1_text"),
-                "button1_url": request.form.get(f"promo_{i}_btn1_url"),
-                "button2_text": request.form.get(f"promo_{i}_btn2_text"),
-                "button2_url": request.form.get(f"promo_{i}_btn2_url"),
-            }
-            set_setting(f"promo_{i}", json.dumps(promo_data))
+        set_setting("main_banner", request.form.get("main_banner", ""))
+        set_setting("about_text", request.form.get("about_text", ""))
+        set_setting("register_url", request.form.get("register_url", ""))
+        set_setting("telegram_support", request.form.get("telegram_support", ""))
+        set_setting("whatsapp_url", request.form.get("whatsapp_url", ""))
 
         return redirect("/admin")
-
-    promos = load_promotions()
 
     data = {
         "main_banner": get_setting("main_banner"),
         "about_text": get_setting("about_text"),
         "register_url": get_setting("register_url"),
         "telegram_support": get_setting("telegram_support"),
-        "whatsapp_url": get_setting("whatsapp_url"),
-        "promo_1": promos.get("promo_1", {}),
-        "promo_2": promos.get("promo_2", {}),
-        "promo_3": promos.get("promo_3", {}),
+        "whatsapp_url": get_setting("whatsapp_url")
     }
 
     return render_template("dashboard.html", data=data)
 
 
 # =========================
-# AUTO INIT + RUN BOT THREAD
+# PROMOS LIST
+# =========================
+@flask_app.route("/admin/promos")
+def admin_promos():
+    if not require_login():
+        return redirect("/admin/login")
+
+    promos = get_promos(active_only=False)
+    return render_template("promos.html", promos=promos)
+
+
+@flask_app.route("/admin/promos/add", methods=["POST"])
+def admin_add_promo():
+    if not require_login():
+        return redirect("/admin/login")
+
+    title = request.form.get("title", "").strip()
+    image_url = request.form.get("image_url", "").strip()
+    caption = request.form.get("caption", "").strip()
+
+    if not title or not image_url or not caption:
+        return redirect("/admin/promos")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO promos (title, image_url, caption, is_active)
+        VALUES (%s, %s, %s, TRUE)
+    """, (title, image_url, caption))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/admin/promos")
+
+
+@flask_app.route("/admin/promos/delete/<int:promo_id>")
+def admin_delete_promo(promo_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM promos WHERE id=%s", (promo_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/admin/promos")
+
+
+@flask_app.route("/admin/promos/toggle/<int:promo_id>")
+def admin_toggle_promo(promo_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE promos SET is_active = NOT is_active WHERE id=%s", (promo_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/admin/promos")
+
+
+# =========================
+# PROMO EDIT
+# =========================
+@flask_app.route("/admin/promo/<int:promo_id>", methods=["GET", "POST"])
+def admin_edit_promo(promo_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        title = request.form.get("title", "")
+        image_url = request.form.get("image_url", "")
+        caption = request.form.get("caption", "")
+
+        cur.execute("""
+            UPDATE promos SET title=%s, image_url=%s, caption=%s
+            WHERE id=%s
+        """, (title, image_url, caption, promo_id))
+        conn.commit()
+
+        return redirect(f"/admin/promo/{promo_id}")
+
+    cur.execute("SELECT id, title, image_url, caption FROM promos WHERE id=%s", (promo_id,))
+    promo = cur.fetchone()
+
+    cur.execute("""
+        SELECT id, text, url, sort_order
+        FROM promo_buttons
+        WHERE promo_id=%s
+        ORDER BY sort_order ASC
+    """, (promo_id,))
+    buttons = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("promo_edit.html", promo=promo, buttons=buttons)
+
+
+@flask_app.route("/admin/promo/<int:promo_id>/button/add", methods=["POST"])
+def admin_add_promo_button(promo_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    text_btn = request.form.get("text", "").strip()
+    url = request.form.get("url", "").strip()
+
+    if not text_btn or not url:
+        return redirect(f"/admin/promo/{promo_id}")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COALESCE(MAX(sort_order), 0) FROM promo_buttons WHERE promo_id=%s", (promo_id,))
+    max_sort = cur.fetchone()[0] + 1
+
+    cur.execute("""
+        INSERT INTO promo_buttons (promo_id, text, url, sort_order)
+        VALUES (%s, %s, %s, %s)
+    """, (promo_id, text_btn, url, max_sort))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(f"/admin/promo/{promo_id}")
+
+
+@flask_app.route("/admin/promo/button/delete/<int:button_id>/<int:promo_id>")
+def admin_delete_promo_button(button_id, promo_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM promo_buttons WHERE id=%s", (button_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(f"/admin/promo/{promo_id}")
+
+
+# =========================
+# BANNER BUTTONS
+# =========================
+@flask_app.route("/admin/banner_buttons", methods=["GET", "POST"])
+def admin_banner_buttons():
+    if not require_login():
+        return redirect("/admin/login")
+
+    if request.method == "POST":
+        text_btn = request.form.get("text", "").strip()
+        url = request.form.get("url", "").strip()
+        callback_data = request.form.get("callback_data", "").strip()
+
+        if not text_btn:
+            return redirect("/admin/banner_buttons")
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT COALESCE(MAX(sort_order), 0) FROM banner_buttons")
+        max_sort = cur.fetchone()[0] + 1
+
+        cur.execute("""
+            INSERT INTO banner_buttons (text, url, callback_data, sort_order)
+            VALUES (%s, %s, %s, %s)
+        """, (text_btn, url if url else None, callback_data if callback_data else None, max_sort))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return redirect("/admin/banner_buttons")
+
+    buttons = get_banner_buttons()
+    return render_template("banner_buttons.html", buttons=buttons)
+
+
+@flask_app.route("/admin/banner_buttons/delete/<int:button_id>")
+def admin_delete_banner_button(button_id):
+    if not require_login():
+        return redirect("/admin/login")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM banner_buttons WHERE id=%s", (button_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/admin/banner_buttons")
+
+
+# =========================
+# START SYSTEM
 # =========================
 init_db()
 
 bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
-
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

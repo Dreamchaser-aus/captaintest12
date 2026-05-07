@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Promos</title>
+    <style>
+        body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
+        textarea { height: 80px; }
+        button { padding: 10px 15px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<h1>Promo Management</h1>
+
+<div style="margin-bottom:20px;">
+    <a href="/admin">Settings</a>
+    <a href="/admin/promos">Promos</a>
+    <a href="/admin/banner_buttons">Banner Buttons</a>
+    <a href="/admin/logout" style="color:red;">Logout</a>
+</div>
+
+<div class="box">
+    <h2>Add New Promo</h2>
+    <form method="POST" action="/admin/promos/add">
+        <label>Title (Example: 🔥 Promo 4)</label>
+        <input type="text" name="title" required>
+
+        <label>Image URL</label>
+        <input type="text" name="image_url" required>
+
+        <label>Caption</label>
+        <textarea name="caption" required></textarea>
+
+        <button type="submit">➕ Add Promo</button>
+    </form>
+</div>
+
+<h2>All Promos</h2>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+
+    {% for p in promos %}
+    <tr>
+        <td>{{ p[0] }}</td>
+        <td>{{ p[1] }}</td>
+        <td>
+            {% if p[4] %}
+                ✅ Active
+            {% else %}
+                ❌ Disabled
+            {% endif %}
+        </td>
+        <td>
+            <a href="/admin/promo/{{ p[0] }}">Edit</a>
+            <a href="/admin/promos/toggle/{{ p[0] }}">Toggle</a>
+            <a href="/admin/promos/delete/{{ p[0] }}" style="color:red;">Delete</a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+</body>
+</html>

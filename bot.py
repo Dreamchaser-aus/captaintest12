@@ -383,17 +383,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def run_bot():
+    import asyncio
+
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN not set")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    async def bot_main():
+        app = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(CallbackQueryHandler(button_handler))
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("Bot running...")
-    app.run_polling()
+        print("Bot running...")
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling()
+        await asyncio.Event().wait()  # keep running forever
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(bot_main())
 
 
 # =========================

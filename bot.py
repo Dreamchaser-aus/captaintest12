@@ -109,12 +109,19 @@ def init_db():
             "👋 Welcome {username}\n"
             "🆔 Your ID: {user_id}\n\n"
             "Welcome to Promotion Center 🔥\n"
-            "Choose action below:"
+            "Choose action below:\n\n"
+            "📊 Registration Stats (MY Time)\n"
+            "📅 Today: {today_count}\n"
+            "🗓 This Month: {month_count}"
         ),
         "about_text": "📌 About Us\n\nFast Withdraw | 24/7 Support",
         "register_url": "https://yourwebsite.com",
         "telegram_support": "https://t.me/your_support",
-        "whatsapp_url": "https://wa.me/60139661818"
+        "whatsapp_url": "https://wa.me/60139661818",
+
+        # Manual correction（补录人数）
+        "manual_today_add": "0",
+        "manual_month_add": "0"
     }
 
     for k, v in defaults.items():
@@ -205,6 +212,13 @@ def set_setting(key, value):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def get_int_setting(key, default=0):
+    try:
+        return int(get_setting(key) or default)
+    except:
+        return default
 
 
 # =========================
@@ -394,23 +408,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username if user.username else user.first_name
     user_id = user.id
 
-    # 记录用户（只会记录一次）
+    # 记录用户（只记录一次）
     ensure_user(user_id, username)
 
-    # Malaysia 统计
-    today_count = get_today_count_malaysia()
-    month_count = get_month_count_malaysia()
+    # 真实统计（Malaysia Time）
+    real_today = get_today_count_malaysia()
+    real_month = get_month_count_malaysia()
+
+    # 管理员补录（Manual Correction）
+    manual_today = get_int_setting("manual_today_add", 0)
+    manual_month = get_int_setting("manual_month_add", 0)
+
+    # 最终显示
+    today_count = real_today + manual_today
+    month_count = real_month + manual_month
 
     banner_url = get_setting("main_banner")
     welcome_text = get_setting("welcome_text")
 
-    text = welcome_text.replace("{username}", username).replace("{user_id}", str(user_id))
-
-    # 添加统计显示
-    text += (
-        f"\n\n📊 Registration Stats (Malaysia Time)\n"
-        f"📅 Today: {today_count}\n"
-        f"🗓 This Month: {month_count}"
+    # 支持变量替换
+    text = (
+        welcome_text
+        .replace("{username}", username)
+        .replace("{user_id}", str(user_id))
+        .replace("{today_count}", str(today_count))
+        .replace("{month_count}", str(month_count))
     )
 
     btns = get_banner_buttons()
@@ -504,7 +526,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# RUN BOT THREAD (FIX LOOP)
+# RUN BOT THREAD
 # =========================
 def run_bot():
     import asyncio
@@ -576,6 +598,10 @@ def admin_dashboard():
         set_setting("telegram_support", request.form.get("telegram_support", ""))
         set_setting("whatsapp_url", request.form.get("whatsapp_url", ""))
 
+        # Manual correction
+        set_setting("manual_today_add", request.form.get("manual_today_add", "0"))
+        set_setting("manual_month_add", request.form.get("manual_month_add", "0"))
+
         return redirect("/admin")
 
     data = {
@@ -584,7 +610,11 @@ def admin_dashboard():
         "about_text": get_setting("about_text"),
         "register_url": get_setting("register_url"),
         "telegram_support": get_setting("telegram_support"),
-        "whatsapp_url": get_setting("whatsapp_url")
+        "whatsapp_url": get_setting("whatsapp_url"),
+
+        # Manual correction
+        "manual_today_add": get_setting("manual_today_add"),
+        "manual_month_add": get_setting("manual_month_add")
     }
 
     return render_template("dashboard.html", data=data)

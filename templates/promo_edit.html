@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Promo</title>
+    <style>
+        body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
+        textarea { height: 80px; }
+        button { padding: 10px 15px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<h1>Edit Promo</h1>
+
+<div style="margin-bottom:20px;">
+    <a href="/admin/promos">⬅ Back Promos</a>
+    <a href="/admin/logout" style="color:red;">Logout</a>
+</div>
+
+<div class="box">
+    <h2>Promo Info</h2>
+
+    <form method="POST">
+        <label>Title</label>
+        <input type="text" name="title" value="{{ promo[1] }}" required>
+
+        <label>Image URL</label>
+        <input type="text" name="image_url" value="{{ promo[2] }}" required>
+
+        <label>Caption</label>
+        <textarea name="caption" required>{{ promo[3] }}</textarea>
+
+        <button type="submit">💾 Save Promo</button>
+    </form>
+</div>
+
+<div class="box">
+    <h2>Promo Buttons</h2>
+
+    <form method="POST" action="/admin/promo/{{ promo[0] }}/button/add">
+        <label>Button Text</label>
+        <input type="text" name="text" required>
+
+        <label>Button URL</label>
+        <input type="text" name="url" required>
+
+        <button type="submit">➕ Add Button</button>
+    </form>
+
+    <h3>Current Buttons</h3>
+    <table>
+        <tr>
+            <th>Text</th>
+            <th>URL</th>
+            <th>Action</th>
+        </tr>
+
+        {% for b in buttons %}
+        <tr>
+            <td>{{ b[1] }}</td>
+            <td>{{ b[2] }}</td>
+            <td>
+                <a href="/admin/promo/button/delete/{{ b[0] }}/{{ promo[0] }}" style="color:red;">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+</div>
+
+</body>
+</html>

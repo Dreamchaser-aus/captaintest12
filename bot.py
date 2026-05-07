@@ -90,6 +90,16 @@ def init_db():
         )
     """)
 
+    # users table (统计用)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE,
+            username TEXT,
+            first_seen TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     conn.commit()
 
     # default settings
@@ -139,6 +149,7 @@ def init_db():
 
         for pid in ids:
             promo_id = pid[0]
+
             cur.execute("""
                 INSERT INTO promo_buttons (promo_id, text, url, sort_order)
                 VALUES (%s, %s, %s, %s)
@@ -169,6 +180,9 @@ def init_db():
     conn.close()
 
 
+# =========================
+# SETTINGS
+# =========================
 def get_setting(key):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -193,6 +207,72 @@ def set_setting(key, value):
     conn.close()
 
 
+# =========================
+# USERS STAT (Malaysia Time)
+# =========================
+def ensure_user(user_id: int, username: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT telegram_id FROM users WHERE telegram_id=%s", (user_id,))
+    row = cur.fetchone()
+
+    if not row:
+        cur.execute("""
+            INSERT INTO users (telegram_id, username, first_seen)
+            VALUES (%s, %s, NOW())
+        """, (user_id, username))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_today_count_malaysia():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM users
+        WHERE (first_seen AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+              =
+              (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+    """)
+
+    count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return count
+
+
+def get_month_count_malaysia():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM users
+        WHERE DATE_TRUNC(
+                'month',
+                (first_seen AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')
+              )
+              =
+              DATE_TRUNC(
+                'month',
+                (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')
+              )
+    """)
+
+    count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return count
+
+
+# =========================
+# PROMOS
+# =========================
 def get_promos(active_only=True):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -240,6 +320,7 @@ def get_promo_buttons(promo_id):
 def add_promo_button(promo_id, text, url):
     conn = get_db_connection()
     cur = conn.cursor()
+
     cur.execute("SELECT COALESCE(MAX(sort_order), 0) FROM promo_buttons WHERE promo_id=%s", (promo_id,))
     max_sort = cur.fetchone()[0] + 1
 
@@ -253,6 +334,9 @@ def add_promo_button(promo_id, text, url):
     conn.close()
 
 
+# =========================
+# BANNER BUTTONS
+# =========================
 def get_banner_buttons():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -310,10 +394,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username if user.username else user.first_name
     user_id = user.id
 
+    # 记录用户（只会记录一次）
+    ensure_user(user_id, username)
+
+    # Malaysia 统计
+    today_count = get_today_count_malaysia()
+    month_count = get_month_count_malaysia()
+
     banner_url = get_setting("main_banner")
     welcome_text = get_setting("welcome_text")
 
     text = welcome_text.replace("{username}", username).replace("{user_id}", str(user_id))
+
+    # 添加统计显示
+    text += (
+        f"\n\n📊 Registration Stats (Malaysia Time)\n"
+        f"📅 Today: {today_count}\n"
+        f"🗓 This Month: {month_count}"
+    )
 
     btns = get_banner_buttons()
     kb = []

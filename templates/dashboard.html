@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin Dashboard</title>
+    <title>Dashboard</title>
     <style>
         body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
         .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
-        textarea { height: 80px; }
+        textarea { height: 120px; }
         button { padding: 12px 20px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
         a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
     </style>
@@ -23,11 +23,15 @@
 </div>
 
 <form method="POST">
+
     <div class="box">
         <h2>Basic Settings</h2>
 
         <label>Main Banner URL</label>
         <input type="text" name="main_banner" value="{{ data.main_banner }}">
+
+        <label>Welcome Text (Support {username} {user_id})</label>
+        <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
 
         <label>About Text</label>
         <textarea name="about_text">{{ data.about_text }}</textarea>
@@ -43,6 +47,7 @@
     </div>
 
     <button type="submit">💾 Save Settings</button>
+
 </form>
 
 </body>

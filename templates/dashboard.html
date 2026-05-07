@@ -4,106 +4,46 @@
     <title>Admin Dashboard</title>
     <style>
         body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
-        h1 { margin-bottom: 10px; }
         .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
         textarea { height: 80px; }
         button { padding: 12px 20px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .promo-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-        .logout { float: right; color: red; text-decoration: none; }
+        a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>Telegram Bot Admin Panel <a class="logout" href="/admin/logout">Logout</a></h1>
+<h1>Admin Dashboard</h1>
 
-    <form method="POST">
+<div style="margin-bottom:20px;">
+    <a href="/admin">Settings</a>
+    <a href="/admin/promos">Promos</a>
+    <a href="/admin/banner_buttons">Banner Buttons</a>
+    <a href="/admin/logout" style="color:red;">Logout</a>
+</div>
 
-        <div class="box">
-            <h2>Basic Settings</h2>
+<form method="POST">
+    <div class="box">
+        <h2>Basic Settings</h2>
 
-            <label>Main Banner URL</label>
-            <input type="text" name="main_banner" value="{{ data.main_banner }}" />
+        <label>Main Banner URL</label>
+        <input type="text" name="main_banner" value="{{ data.main_banner }}">
 
-            <label>About Text</label>
-            <textarea name="about_text">{{ data.about_text }}</textarea>
+        <label>About Text</label>
+        <textarea name="about_text">{{ data.about_text }}</textarea>
 
-            <label>Register URL</label>
-            <input type="text" name="register_url" value="{{ data.register_url }}" />
+        <label>Register URL</label>
+        <input type="text" name="register_url" value="{{ data.register_url }}">
 
-            <label>Telegram Support URL</label>
-            <input type="text" name="telegram_support" value="{{ data.telegram_support }}" />
+        <label>Telegram Support URL</label>
+        <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
 
-            <label>WhatsApp URL</label>
-            <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}" />
-        </div>
+        <label>WhatsApp URL</label>
+        <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
+    </div>
 
-        <div class="box">
-            <div class="promo-title">🔥 Promo 1</div>
-            <label>Image URL</label>
-            <input type="text" name="promo_1_image" value="{{ data.promo_1.image }}" />
-
-            <label>Caption</label>
-            <textarea name="promo_1_caption">{{ data.promo_1.caption }}</textarea>
-
-            <label>Button 1 Text</label>
-            <input type="text" name="promo_1_btn1_text" value="{{ data.promo_1.button1_text }}" />
-
-            <label>Button 1 URL</label>
-            <input type="text" name="promo_1_btn1_url" value="{{ data.promo_1.button1_url }}" />
-
-            <label>Button 2 Text</label>
-            <input type="text" name="promo_1_btn2_text" value="{{ data.promo_1.button2_text }}" />
-
-            <label>Button 2 URL</label>
-            <input type="text" name="promo_1_btn2_url" value="{{ data.promo_1.button2_url }}" />
-        </div>
-
-        <div class="box">
-            <div class="promo-title">🎁 Promo 2</div>
-            <label>Image URL</label>
-            <input type="text" name="promo_2_image" value="{{ data.promo_2.image }}" />
-
-            <label>Caption</label>
-            <textarea name="promo_2_caption">{{ data.promo_2.caption }}</textarea>
-
-            <label>Button 1 Text</label>
-            <input type="text" name="promo_2_btn1_text" value="{{ data.promo_2.button1_text }}" />
-
-            <label>Button 1 URL</label>
-            <input type="text" name="promo_2_btn1_url" value="{{ data.promo_2.button1_url }}" />
-
-            <label>Button 2 Text</label>
-            <input type="text" name="promo_2_btn2_text" value="{{ data.promo_2.button2_text }}" />
-
-            <label>Button 2 URL</label>
-            <input type="text" name="promo_2_btn2_url" value="{{ data.promo_2.button2_url }}" />
-        </div>
-
-        <div class="box">
-            <div class="promo-title">💎 Promo 3</div>
-            <label>Image URL</label>
-            <input type="text" name="promo_3_image" value="{{ data.promo_3.image }}" />
-
-            <label>Caption</label>
-            <textarea name="promo_3_caption">{{ data.promo_3.caption }}</textarea>
-
-            <label>Button 1 Text</label>
-            <input type="text" name="promo_3_btn1_text" value="{{ data.promo_3.button1_text }}" />
-
-            <label>Button 1 URL</label>
-            <input type="text" name="promo_3_btn1_url" value="{{ data.promo_3.button1_url }}" />
-
-            <label>Button 2 Text</label>
-            <input type="text" name="promo_3_btn2_text" value="{{ data.promo_3.button2_text }}" />
-
-            <label>Button 2 URL</label>
-            <input type="text" name="promo_3_btn2_url" value="{{ data.promo_3.button2_url }}" />
-        </div>
-
-        <button type="submit">💾 Save All Changes</button>
-
-    </form>
+    <button type="submit">💾 Save Settings</button>
+</form>
 
 </body>
 </html>

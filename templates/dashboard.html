@@ -2,24 +2,113 @@
 <html>
 <head>
     <title>Dashboard</title>
+    <meta charset="utf-8" />
     <style>
-        body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
-        .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
-        textarea { height: 120px; }
-        button { padding: 12px 20px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            padding: 30px;
+        }
+        .nav {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #111c33;
+            border-radius: 10px;
+        }
+        .nav a {
+            color: #60a5fa;
+            text-decoration: none;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        .nav .logout {
+            color: #ff4d4d;
+        }
+        .box {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.25);
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            background: #0b1220;
+            color: white;
+        }
+        textarea {
+            height: 140px;
+            resize: vertical;
+        }
+        button {
+            padding: 12px 20px;
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #16a34a;
+        }
+        .hint {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+        .split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media(max-width: 900px) {
+            .split {
+                grid-template-columns: 1fr;
+            }
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 15px;
+            color: #facc15;
+        }
     </style>
 </head>
+
 <body>
 
 <h1>Admin Dashboard</h1>
 
-<div style="margin-bottom:20px;">
+<div class="nav">
     <a href="/admin">Settings</a>
     <a href="/admin/promos">Promos</a>
     <a href="/admin/banner_buttons">Banner Buttons</a>
-    <a href="/admin/logout" style="color:red;">Logout</a>
+    <a href="/admin/logout" class="logout">Logout</a>
 </div>
 
 <form method="POST">
@@ -30,7 +119,14 @@
         <label>Main Banner URL</label>
         <input type="text" name="main_banner" value="{{ data.main_banner }}">
 
-        <label>Welcome Text (Support {username} {user_id})</label>
+        <label>Welcome Text</label>
+        <div class="hint">
+            Supported variables:
+            <b>{username}</b> <b>{user_id}</b> <b>{today_count}</b> <b>{month_count}</b><br>
+            Example:<br>
+            📅 Today Register: {today_count}<br>
+            🗓 This Month Register: {month_count}
+        </div>
         <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
 
         <label>About Text</label>
@@ -44,6 +140,33 @@
 
         <label>WhatsApp URL</label>
         <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
+    </div>
+
+    <div class="box">
+        <h2>Manual Correction (Add External Registrations)</h2>
+
+        <div class="hint">
+            This is used for adding real registrations from other channels (offline, ads, website etc).<br>
+            Bot will display: <b>real_count + manual_add</b>
+        </div>
+
+        <div class="split">
+            <div>
+                <label>Manual Today Add</label>
+                <input type="text" name="manual_today_add" value="{{ data.manual_today_add }}">
+                <div class="hint">Example: 50 (adds +50 to Today count)</div>
+            </div>
+
+            <div>
+                <label>Manual Month Add</label>
+                <input type="text" name="manual_month_add" value="{{ data.manual_month_add }}">
+                <div class="hint">Example: 2000 (adds +2000 to Month count)</div>
+            </div>
+        </div>
+
+        <div class="hint" style="margin-top:15px;">
+            ⚠️ Suggestion: Month Add should be larger than Today Add to look normal.
+        </div>
     </div>
 
     <button type="submit">💾 Save Settings</button>

@@ -26,7 +26,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
+SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
+
 
 # =========================
 # FLASK
@@ -48,7 +49,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # settings table
+    # settings
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -56,7 +57,7 @@ def init_db():
         )
     """)
 
-    # promos table
+    # promos
     cur.execute("""
         CREATE TABLE IF NOT EXISTS promos (
             id SERIAL PRIMARY KEY,
@@ -73,12 +74,12 @@ def init_db():
             id SERIAL PRIMARY KEY,
             promo_id INT REFERENCES promos(id) ON DELETE CASCADE,
             text TEXT NOT NULL,
-            url TEXT,
+            url TEXT NOT NULL,
             sort_order INT DEFAULT 0
         )
     """)
 
-    # banner inline buttons
+    # banner buttons
     cur.execute("""
         CREATE TABLE IF NOT EXISTS banner_buttons (
             id SERIAL PRIMARY KEY,
@@ -94,6 +95,12 @@ def init_db():
     # default settings
     defaults = {
         "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
+        "welcome_text": (
+            "👋 Welcome {username}\n"
+            "🆔 Your ID: {user_id}\n\n"
+            "Welcome to Promotion Center 🔥\n"
+            "Choose action below:"
+        ),
         "about_text": "📌 About Us\n\nFast Withdraw | 24/7 Support",
         "register_url": "https://yourwebsite.com",
         "telegram_support": "https://t.me/your_support",
@@ -105,17 +112,17 @@ def init_db():
         if not cur.fetchone():
             cur.execute("INSERT INTO settings (key, value) VALUES (%s, %s)", (k, v))
 
-    # insert default promos if empty
+    # default promos
     cur.execute("SELECT COUNT(*) FROM promos")
-    count = cur.fetchone()[0]
+    promo_count = cur.fetchone()[0]
 
-    if count == 0:
+    if promo_count == 0:
         cur.execute("""
-            INSERT INTO promos (title, image_url, caption)
+            INSERT INTO promos (title, image_url, caption, is_active)
             VALUES
-            (%s, %s, %s),
-            (%s, %s, %s),
-            (%s, %s, %s)
+            (%s, %s, %s, TRUE),
+            (%s, %s, %s, TRUE),
+            (%s, %s, %s, TRUE)
             RETURNING id
         """, (
             "🔥 Promo 1", "https://i.imgur.com/5qHnQ0R.jpeg",
@@ -128,9 +135,9 @@ def init_db():
             "💎 DAILY BONUS\n\nDaily reward system\nFast payout ⚡"
         ))
 
-        promo_ids = cur.fetchall()
+        ids = cur.fetchall()
 
-        for pid in promo_ids:
+        for pid in ids:
             promo_id = pid[0]
             cur.execute("""
                 INSERT INTO promo_buttons (promo_id, text, url, sort_order)
@@ -140,13 +147,13 @@ def init_db():
             cur.execute("""
                 INSERT INTO promo_buttons (promo_id, text, url, sort_order)
                 VALUES (%s, %s, %s, %s)
-            """, (promo_id, "💬 Support", "https://t.me/your_support", 2))
+            """, (promo_id, "💬 Contact", "https://t.me/your_support", 2))
 
-    # insert default banner buttons if empty
+    # default banner buttons
     cur.execute("SELECT COUNT(*) FROM banner_buttons")
-    bcount = cur.fetchone()[0]
+    banner_count = cur.fetchone()[0]
 
-    if bcount == 0:
+    if banner_count == 0:
         cur.execute("""
             INSERT INTO banner_buttons (text, url, callback_data, sort_order)
             VALUES (%s, %s, %s, %s)
@@ -204,7 +211,11 @@ def get_promos(active_only=True):
 def get_promo_by_title(title):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, title, image_url, caption FROM promos WHERE title=%s AND is_active=TRUE", (title,))
+    cur.execute("""
+        SELECT id, title, image_url, caption
+        FROM promos
+        WHERE title=%s AND is_active=TRUE
+    """, (title,))
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -224,6 +235,22 @@ def get_promo_buttons(promo_id):
     cur.close()
     conn.close()
     return rows
+
+
+def add_promo_button(promo_id, text, url):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COALESCE(MAX(sort_order), 0) FROM promo_buttons WHERE promo_id=%s", (promo_id,))
+    max_sort = cur.fetchone()[0] + 1
+
+    cur.execute("""
+        INSERT INTO promo_buttons (promo_id, text, url, sort_order)
+        VALUES (%s, %s, %s, %s)
+    """, (promo_id, text, url, max_sort))
+
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def get_banner_buttons():
@@ -256,22 +283,23 @@ def base_keyboard():
 def expanded_keyboard():
     promos = get_promos(active_only=True)
 
-    promo_buttons = []
+    promo_rows = []
     row = []
-    for i, promo in enumerate(promos, start=1):
-        row.append(promo[1])  # promo title
+
+    for promo in promos:
+        row.append(promo[1])
         if len(row) == 2:
-            promo_buttons.append(row)
+            promo_rows.append(row)
             row = []
 
     if row:
-        promo_buttons.append(row)
+        promo_rows.append(row)
 
-    promo_buttons.append(["📌 About"])
-    promo_buttons.append(["⬅️ Back Menu"])
-    promo_buttons.append(["📞 Contact", "🚀 Register"])
+    promo_rows.append(["📌 About"])
+    promo_rows.append(["⬅️ Back Menu"])
+    promo_rows.append(["📞 Contact", "🚀 Register"])
 
-    return ReplyKeyboardMarkup(promo_buttons, resize_keyboard=True)
+    return ReplyKeyboardMarkup(promo_rows, resize_keyboard=True)
 
 
 # =========================
@@ -282,33 +310,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username if user.username else user.first_name
     user_id = user.id
 
-    MAIN_BANNER = get_setting("main_banner")
+    banner_url = get_setting("main_banner")
+    welcome_text = get_setting("welcome_text")
 
-    text = (
-        f"👋 Welcome {username}\n"
-        f"🆔 Your ID: {user_id}\n\n"
-        "Welcome to Promotion Center 🔥\n"
-        "Choose action below:"
-    )
+    text = welcome_text.replace("{username}", username).replace("{user_id}", str(user_id))
 
-    buttons = []
-    banner_buttons = get_banner_buttons()
-
+    btns = get_banner_buttons()
+    kb = []
     row = []
-    for b in banner_buttons:
-        _id, text_btn, url, callback_data = b
+
+    for b in btns:
+        _, text_btn, url, callback_data = b
         if url:
             row.append(InlineKeyboardButton(text_btn, url=url))
         elif callback_data:
             row.append(InlineKeyboardButton(text_btn, callback_data=callback_data))
 
     if row:
-        buttons.append(row)
+        kb.append(row)
 
     await update.message.reply_photo(
-        photo=MAIN_BANNER,
+        photo=banner_url,
         caption=text,
-        reply_markup=InlineKeyboardMarkup(buttons)
+        reply_markup=InlineKeyboardMarkup(kb)
     )
 
 
@@ -341,8 +365,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if msg == "📌 About":
-        about_text = get_setting("about_text")
-        await update.message.reply_text(about_text)
+        await update.message.reply_text(get_setting("about_text"))
         return
 
     if msg == "📞 Contact":
@@ -360,10 +383,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg == "🚀 Register":
         register_url = get_setting("register_url")
         keyboard = [[InlineKeyboardButton("🌍 Register", url=register_url)]]
+
         await update.message.reply_text("🚀 Register Now", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    # check if msg is promo title
     promo = get_promo_by_title(msg)
     if promo:
         promo_id, title, image_url, caption = promo
@@ -382,24 +405,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Back to Menu", reply_markup=expanded_keyboard())
 
 
+# =========================
+# RUN BOT THREAD (FIX LOOP)
+# =========================
 def run_bot():
     import asyncio
 
-    if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN not set")
-
     async def bot_main():
-        app = Application.builder().token(BOT_TOKEN).build()
+        bot = Application.builder().token(BOT_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-        app.add_handler(CallbackQueryHandler(button_handler))
+        bot.add_handler(CommandHandler("start", start))
+        bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        bot.add_handler(CallbackQueryHandler(button_handler))
 
         print("Bot running...")
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling()
-        await asyncio.Event().wait()  # keep running forever
+        await bot.initialize()
+        await bot.start()
+        await bot.updater.start_polling()
+        await asyncio.Event().wait()
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -440,7 +463,7 @@ def admin_logout():
 
 
 # =========================
-# DASHBOARD (SETTINGS)
+# DASHBOARD SETTINGS
 # =========================
 @flask_app.route("/admin", methods=["GET", "POST"])
 def admin_dashboard():
@@ -449,6 +472,7 @@ def admin_dashboard():
 
     if request.method == "POST":
         set_setting("main_banner", request.form.get("main_banner", ""))
+        set_setting("welcome_text", request.form.get("welcome_text", ""))
         set_setting("about_text", request.form.get("about_text", ""))
         set_setting("register_url", request.form.get("register_url", ""))
         set_setting("telegram_support", request.form.get("telegram_support", ""))
@@ -458,6 +482,7 @@ def admin_dashboard():
 
     data = {
         "main_banner": get_setting("main_banner"),
+        "welcome_text": get_setting("welcome_text"),
         "about_text": get_setting("about_text"),
         "register_url": get_setting("register_url"),
         "telegram_support": get_setting("telegram_support"),
@@ -535,7 +560,7 @@ def admin_toggle_promo(promo_id):
 
 
 # =========================
-# PROMO EDIT
+# PROMO EDIT + BUTTONS
 # =========================
 @flask_app.route("/admin/promo/<int:promo_id>", methods=["GET", "POST"])
 def admin_edit_promo(promo_id):
@@ -556,6 +581,8 @@ def admin_edit_promo(promo_id):
         """, (title, image_url, caption, promo_id))
         conn.commit()
 
+        cur.close()
+        conn.close()
         return redirect(f"/admin/promo/{promo_id}")
 
     cur.execute("SELECT id, title, image_url, caption FROM promos WHERE id=%s", (promo_id,))
@@ -576,7 +603,7 @@ def admin_edit_promo(promo_id):
 
 
 @flask_app.route("/admin/promo/<int:promo_id>/button/add", methods=["POST"])
-def admin_add_promo_button(promo_id):
+def admin_add_promo_button_route(promo_id):
     if not require_login():
         return redirect("/admin/login")
 
@@ -586,21 +613,7 @@ def admin_add_promo_button(promo_id):
     if not text_btn or not url:
         return redirect(f"/admin/promo/{promo_id}")
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT COALESCE(MAX(sort_order), 0) FROM promo_buttons WHERE promo_id=%s", (promo_id,))
-    max_sort = cur.fetchone()[0] + 1
-
-    cur.execute("""
-        INSERT INTO promo_buttons (promo_id, text, url, sort_order)
-        VALUES (%s, %s, %s, %s)
-    """, (promo_id, text_btn, url, max_sort))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
+    add_promo_button(promo_id, text_btn, url)
     return redirect(f"/admin/promo/{promo_id}")
 
 
@@ -644,7 +657,12 @@ def admin_banner_buttons():
         cur.execute("""
             INSERT INTO banner_buttons (text, url, callback_data, sort_order)
             VALUES (%s, %s, %s, %s)
-        """, (text_btn, url if url else None, callback_data if callback_data else None, max_sort))
+        """, (
+            text_btn,
+            url if url else None,
+            callback_data if callback_data else None,
+            max_sort
+        ))
 
         conn.commit()
         cur.close()

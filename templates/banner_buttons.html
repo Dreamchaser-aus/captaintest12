@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Banner Buttons</title>
+    <style>
+        body { font-family: Arial; background: #0f172a; color: white; padding: 30px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: none; }
+        button { padding: 10px 15px; background: #22c55e; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        a { color: #60a5fa; text-decoration: none; margin-right: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<h1>Banner Buttons Management</h1>
+
+<div style="margin-bottom:20px;">
+    <a href="/admin">Settings</a>
+    <a href="/admin/promos">Promos</a>
+    <a href="/admin/banner_buttons">Banner Buttons</a>
+    <a href="/admin/logout" style="color:red;">Logout</a>
+</div>
+
+<div class="box">
+    <h2>Add New Banner Button</h2>
+
+    <form method="POST">
+        <label>Button Text</label>
+        <input type="text" name="text" required>
+
+        <label>URL (leave empty if callback)</label>
+        <input type="text" name="url">
+
+        <label>Callback Data (example: open_menu)</label>
+        <input type="text" name="callback_data">
+
+        <button type="submit">➕ Add Button</button>
+    </form>
+</div>
+
+<div class="box">
+    <h2>Current Banner Buttons</h2>
+
+    <table>
+        <tr>
+            <th>Text</th>
+            <th>URL</th>
+            <th>Callback</th>
+            <th>Action</th>
+        </tr>
+
+        {% for b in buttons %}
+        <tr>
+            <td>{{ b[1] }}</td>
+            <td>{{ b[2] }}</td>
+            <td>{{ b[3] }}</td>
+            <td><a href="/admin/banner_buttons/delete/{{ b[0] }}" style="color:red;">Delete</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+</body>
+</html>

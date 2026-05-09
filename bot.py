@@ -57,13 +57,13 @@ def init_db():
         )
     """)
 
-    # users
+    # users (FIXED -> TIMESTAMPTZ)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             telegram_id BIGINT UNIQUE,
             username TEXT,
-            first_seen TIMESTAMP DEFAULT NOW()
+            first_seen TIMESTAMPTZ DEFAULT NOW()
         )
     """)
 
@@ -118,7 +118,7 @@ def init_db():
         "telegram_support": "https://t.me/your_support",
         "whatsapp_url": "https://wa.me/60139661818",
 
-        # manual correction (合法补录)
+        # manual correction
         "manual_today_add": "0",
         "manual_month_add": "0"
     }
@@ -154,6 +154,7 @@ def init_db():
 
         for pid in ids:
             promo_id = pid[0]
+
             cur.execute("""
                 INSERT INTO promo_buttons (promo_id, text, url, sort_order)
                 VALUES (%s, %s, %s, %s)
@@ -229,9 +230,10 @@ def ensure_user(user_id: int, username: str):
     row = cur.fetchone()
 
     if not row:
+        # FIXED: let DB default handle first_seen TIMESTAMPTZ
         cur.execute("""
-            INSERT INTO users (telegram_id, username, first_seen)
-            VALUES (%s, %s, NOW())
+            INSERT INTO users (telegram_id, username)
+            VALUES (%s, %s)
         """, (user_id, username))
 
     conn.commit()
@@ -246,9 +248,9 @@ def get_today_count_malaysia():
     cur.execute("""
         SELECT COUNT(*)
         FROM users
-        WHERE (first_seen AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+        WHERE (first_seen AT TIME ZONE 'Asia/Kuala_Lumpur')::date
               =
-              (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+              (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
     """)
 
     count = cur.fetchone()[0]
@@ -264,15 +266,9 @@ def get_month_count_malaysia():
     cur.execute("""
         SELECT COUNT(*)
         FROM users
-        WHERE DATE_TRUNC(
-                'month',
-                (first_seen AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')
-              )
+        WHERE DATE_TRUNC('month', first_seen AT TIME ZONE 'Asia/Kuala_Lumpur')
               =
-              DATE_TRUNC(
-                'month',
-                (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')
-              )
+              DATE_TRUNC('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
     """)
 
     count = cur.fetchone()[0]
@@ -524,16 +520,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 def bot_main():
     async def _runner():
-        app = Application.builder().token(BOT_TOKEN).build()
+        bot_app = Application.builder().token(BOT_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-        app.add_handler(CallbackQueryHandler(button_handler))
+        bot_app.add_handler(CommandHandler("start", start))
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        bot_app.add_handler(CallbackQueryHandler(button_handler))
 
         print("Bot running...")
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling()
+        await bot_app.initialize()
+        await bot_app.start()
+        await bot_app.updater.start_polling()
 
         await asyncio.Event().wait()
 

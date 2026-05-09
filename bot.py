@@ -2,6 +2,7 @@ import os
 import threading
 import asyncio
 import psycopg2
+import requests
 
 from flask import Flask, render_template, request, redirect, session
 
@@ -36,6 +37,23 @@ SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
 flask_app = Flask(__name__)
 flask_app.secret_key = SECRET_KEY
 
+
+# =========================
+# WEBHOOK CLEAN
+# =========================
+def clear_webhook():
+    if not BOT_TOKEN:
+        print("BOT_TOKEN missing, cannot clear webhook")
+        return
+
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
+        r = requests.get(url, timeout=10)
+        print("Webhook cleared:", r.text)
+    except Exception as e:
+        print("Webhook clear failed:", e)
+
+
 # =========================
 # DB
 # =========================
@@ -57,7 +75,7 @@ def init_db():
         )
     """)
 
-    # users (FIXED -> TIMESTAMPTZ)
+    # users (TIMESTAMPTZ for correct timezone)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -230,7 +248,6 @@ def ensure_user(user_id: int, username: str):
     row = cur.fetchone()
 
     if not row:
-        # FIXED: let DB default handle first_seen TIMESTAMPTZ
         cur.execute("""
             INSERT INTO users (telegram_id, username)
             VALUES (%s, %s)
@@ -403,11 +420,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ensure_user(user_id, username)
 
-    # real count
     real_today = get_today_count_malaysia()
     real_month = get_month_count_malaysia()
 
-    # manual correction
     manual_today = get_int_setting("manual_today_add", 0)
     manual_month = get_int_setting("manual_month_add", 0)
 
@@ -426,23 +441,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     btns = get_banner_buttons()
-    kb = []
+
+    keyboard = []
     row = []
 
     for b in btns:
         _, text_btn, url, callback_data = b
+
         if url:
             row.append(InlineKeyboardButton(text_btn, url=url))
         elif callback_data:
             row.append(InlineKeyboardButton(text_btn, callback_data=callback_data))
 
     if row:
-        kb.append(row)
+        keyboard.append(row)
 
     await update.message.reply_photo(
         photo=banner_url,
         caption=text,
-        reply_markup=InlineKeyboardMarkup(kb)
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -591,7 +608,6 @@ def admin_dashboard():
         set_setting("telegram_support", request.form.get("telegram_support", ""))
         set_setting("whatsapp_url", request.form.get("whatsapp_url", ""))
 
-        # manual correction
         set_setting("manual_today_add", request.form.get("manual_today_add", "0"))
         set_setting("manual_month_add", request.form.get("manual_month_add", "0"))
 
@@ -812,9 +828,13 @@ def admin_delete_banner_button(button_id):
 # START SYSTEM
 # =========================
 init_db()
+clear_webhook()
 
-bot_thread = threading.Thread(target=run_bot, daemon=True)
-bot_thread.start()
+# 防重复启动（重要）
+if os.getenv("BOT_DISABLE") != "1":
+    if os.getenv("RUN_MAIN") != "true":
+        bot_thread = threading.Thread(target=run_bot, daemon=True)
+        bot_thread.start()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

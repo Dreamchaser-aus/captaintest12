@@ -2,7 +2,8 @@ import os
 import threading
 import asyncio
 import psycopg2
-import requests
+
+from urllib.request import urlopen
 
 from flask import Flask, render_template, request, redirect, session
 
@@ -284,11 +285,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # WEBHOOK FIX + BOT RUN
 # =========================
 def clear_webhook():
+    if not BOT_TOKEN:
+        print("BOT_TOKEN missing, cannot clear webhook")
+        return
+
     try:
-        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook")
-        print("Webhook cleared")
-    except:
-        pass
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
+        resp = urlopen(url, timeout=10)
+        print("Webhook cleared:", resp.read().decode("utf-8"))
+    except Exception as e:
+        print("Webhook clear failed:", e)
 
 
 def run_bot():

@@ -1,6 +1,8 @@
 import os
 import threading
+import asyncio
 import psycopg2
+
 from flask import Flask, render_template, request, redirect, session
 
 from telegram import (
@@ -19,7 +21,7 @@ from telegram.ext import (
 )
 
 # =========================
-# ENV
+# CONST
 # =========================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -28,13 +30,11 @@ ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
 SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
 
-
 # =========================
-# FLASK
+# FLASK APP
 # =========================
 flask_app = Flask(__name__)
 flask_app.secret_key = SECRET_KEY
-
 
 # =========================
 # DB
@@ -54,6 +54,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
+        )
+    """)
+
+    # users
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE,
+            username TEXT,
+            first_seen TIMESTAMP DEFAULT NOW()
         )
     """)
 
@@ -90,27 +100,16 @@ def init_db():
         )
     """)
 
-    # users table (统计用)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            telegram_id BIGINT UNIQUE,
-            username TEXT,
-            first_seen TIMESTAMP DEFAULT NOW()
-        )
-    """)
-
     conn.commit()
 
-    # default settings
+    # defaults
     defaults = {
         "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
         "welcome_text": (
             "👋 Welcome {username}\n"
             "🆔 Your ID: {user_id}\n\n"
-            "Welcome to Promotion Center 🔥\n"
-            "Choose action below:\n\n"
-            "📊 Registration Stats (MY Time)\n"
+            "🔥 Promotion Center\n\n"
+            "📊 Stats (Malaysia Time)\n"
             "📅 Today: {today_count}\n"
             "🗓 This Month: {month_count}"
         ),
@@ -119,7 +118,7 @@ def init_db():
         "telegram_support": "https://t.me/your_support",
         "whatsapp_url": "https://wa.me/60139661818",
 
-        # Manual correction（补录人数）
+        # manual correction (合法补录)
         "manual_today_add": "0",
         "manual_month_add": "0"
     }
@@ -129,7 +128,7 @@ def init_db():
         if not cur.fetchone():
             cur.execute("INSERT INTO settings (key, value) VALUES (%s, %s)", (k, v))
 
-    # default promos
+    # default promos if empty
     cur.execute("SELECT COUNT(*) FROM promos")
     promo_count = cur.fetchone()[0]
 
@@ -151,23 +150,21 @@ def init_db():
             "💎 Promo 3", "https://i.imgur.com/2gRkPjH.jpeg",
             "💎 DAILY BONUS\n\nDaily reward system\nFast payout ⚡"
         ))
-
         ids = cur.fetchall()
 
         for pid in ids:
             promo_id = pid[0]
+            cur.execute("""
+                INSERT INTO promo_buttons (promo_id, text, url, sort_order)
+                VALUES (%s, %s, %s, %s)
+            """, (promo_id, "🚀 Register", defaults["register_url"], 1))
 
             cur.execute("""
                 INSERT INTO promo_buttons (promo_id, text, url, sort_order)
                 VALUES (%s, %s, %s, %s)
-            """, (promo_id, "🚀 Register", "https://yourwebsite.com", 1))
+            """, (promo_id, "💬 Contact", defaults["telegram_support"], 2))
 
-            cur.execute("""
-                INSERT INTO promo_buttons (promo_id, text, url, sort_order)
-                VALUES (%s, %s, %s, %s)
-            """, (promo_id, "💬 Contact", "https://t.me/your_support", 2))
-
-    # default banner buttons
+    # default banner buttons if empty
     cur.execute("SELECT COUNT(*) FROM banner_buttons")
     banner_count = cur.fetchone()[0]
 
@@ -175,7 +172,7 @@ def init_db():
         cur.execute("""
             INSERT INTO banner_buttons (text, url, callback_data, sort_order)
             VALUES (%s, %s, %s, %s)
-        """, ("🚀 Register", "https://yourwebsite.com", None, 1))
+        """, ("🚀 Register", defaults["register_url"], None, 1))
 
         cur.execute("""
             INSERT INTO banner_buttons (text, url, callback_data, sort_order)
@@ -222,7 +219,7 @@ def get_int_setting(key, default=0):
 
 
 # =========================
-# USERS STAT (Malaysia Time)
+# USERS
 # =========================
 def ensure_user(user_id: int, username: str):
     conn = get_db_connection()
@@ -366,7 +363,7 @@ def get_banner_buttons():
 
 
 # =========================
-# BOT KEYBOARDS
+# KEYBOARDS
 # =========================
 def base_keyboard():
     return ReplyKeyboardMarkup(
@@ -408,25 +405,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username if user.username else user.first_name
     user_id = user.id
 
-    # 记录用户（只记录一次）
     ensure_user(user_id, username)
 
-    # 真实统计（Malaysia Time）
+    # real count
     real_today = get_today_count_malaysia()
     real_month = get_month_count_malaysia()
 
-    # 管理员补录（Manual Correction）
+    # manual correction
     manual_today = get_int_setting("manual_today_add", 0)
     manual_month = get_int_setting("manual_month_add", 0)
 
-    # 最终显示
     today_count = real_today + manual_today
     month_count = real_month + manual_month
 
     banner_url = get_setting("main_banner")
     welcome_text = get_setting("welcome_text")
 
-    # 支持变量替换
     text = (
         welcome_text
         .replace("{username}", username)
@@ -528,25 +522,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 # RUN BOT THREAD
 # =========================
-def run_bot():
-    import asyncio
+def bot_main():
+    async def _runner():
+        app = Application.builder().token(BOT_TOKEN).build()
 
-    async def bot_main():
-        bot = Application.builder().token(BOT_TOKEN).build()
-
-        bot.add_handler(CommandHandler("start", start))
-        bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-        bot.add_handler(CallbackQueryHandler(button_handler))
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        app.add_handler(CallbackQueryHandler(button_handler))
 
         print("Bot running...")
-        await bot.initialize()
-        await bot.start()
-        await bot.updater.start_polling()
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling()
+
         await asyncio.Event().wait()
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot_main())
+    loop.run_until_complete(_runner())
+
+
+def run_bot():
+    bot_main()
 
 
 # =========================
@@ -598,7 +595,7 @@ def admin_dashboard():
         set_setting("telegram_support", request.form.get("telegram_support", ""))
         set_setting("whatsapp_url", request.form.get("whatsapp_url", ""))
 
-        # Manual correction
+        # manual correction
         set_setting("manual_today_add", request.form.get("manual_today_add", "0"))
         set_setting("manual_month_add", request.form.get("manual_month_add", "0"))
 
@@ -611,8 +608,6 @@ def admin_dashboard():
         "register_url": get_setting("register_url"),
         "telegram_support": get_setting("telegram_support"),
         "whatsapp_url": get_setting("whatsapp_url"),
-
-        # Manual correction
         "manual_today_add": get_setting("manual_today_add"),
         "manual_month_add": get_setting("manual_month_add")
     }

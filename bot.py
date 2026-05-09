@@ -2,13 +2,24 @@ import os
 import threading
 import asyncio
 import psycopg2
-from urllib.request import urlopen
+import requests
 
-from flask import Flask, request, redirect, session, render_template
+from flask import Flask, render_template, request, redirect, session
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup
+)
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
 
 # =========================
 # CONST
@@ -20,7 +31,6 @@ ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
 SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
 
-
 # =========================
 # FLASK
 # =========================
@@ -29,23 +39,11 @@ flask_app.secret_key = SECRET_KEY
 
 
 # =========================
-# WEBHOOK CLEAN
-# =========================
-def clear_webhook():
-    if not BOT_TOKEN:
-        return
-    try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
-        resp = urlopen(url, timeout=10)
-        print("[WEBHOOK]", resp.read().decode())
-    except Exception as e:
-        print("[WEBHOOK ERROR]", e)
-
-
-# =========================
 # DB
 # =========================
 def get_db_connection():
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL not set in Railway Variables")
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
@@ -57,7 +55,7 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
-            value TEXT
+            value TEXT NOT NULL
         )
     """)
 
@@ -68,6 +66,15 @@ def init_db():
             telegram_id BIGINT UNIQUE,
             username TEXT,
             first_seen TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+
+    # 🔥 FIX: registration log (核心修复)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS registration_log (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
         )
     """)
 
@@ -104,13 +111,32 @@ def init_db():
         )
     """)
 
+    # default settings
+    defaults = {
+        "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
+        "welcome_text": "👋 Welcome {username}\n🆔 {user_id}\n📅 Today: {today_count}\n🗓 Month: {month_count}",
+        "about_text": "Fast Withdraw | 24/7 Support",
+        "register_url": "https://yourwebsite.com",
+        "telegram_support": "https://t.me/your_support",
+        "whatsapp_url": "https://wa.me/60139661818",
+        "manual_today_add": "0",
+        "manual_month_add": "0"
+    }
+
+    for k, v in defaults.items():
+        cur.execute("""
+            INSERT INTO settings (key, value)
+            VALUES (%s, %s)
+            ON CONFLICT (key) DO NOTHING
+        """, (k, v))
+
     conn.commit()
     cur.close()
     conn.close()
 
 
 # =========================
-# SETTINGS ENGINE
+# SETTINGS
 # =========================
 def get_setting(key):
     conn = get_db_connection()
@@ -137,25 +163,32 @@ def set_setting(key, value):
 
 def get_int_setting(key):
     try:
-        return int(get_setting(key) or 0)
+        return int(get_setting(key))
     except:
         return 0
 
 
 # =========================
-# USERS SYSTEM
+# USER REGISTER + LOG
 # =========================
-def ensure_user(uid, username):
+def ensure_user(user_id, username):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT 1 FROM users WHERE telegram_id=%s", (uid,))
-    if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO users (telegram_id, username) VALUES (%s,%s)",
-            (uid, username)
-        )
-        print("[USER INSERT]", uid)
+    cur.execute("SELECT telegram_id FROM users WHERE telegram_id=%s", (user_id,))
+    row = cur.fetchone()
+
+    if not row:
+        cur.execute("""
+            INSERT INTO users (telegram_id, username)
+            VALUES (%s,%s)
+        """, (user_id, username))
+
+        # 🔥 log event
+        cur.execute("""
+            INSERT INTO registration_log (telegram_id)
+            VALUES (%s)
+        """, (user_id,))
 
     conn.commit()
     cur.close()
@@ -163,7 +196,7 @@ def ensure_user(uid, username):
 
 
 # =========================
-# MALAYSIA TIME FIXED
+# TIME FIX (GMT+8 CORRECT)
 # =========================
 def get_today_count():
     conn = get_db_connection()
@@ -171,15 +204,16 @@ def get_today_count():
 
     cur.execute("""
         SELECT COUNT(*)
-        FROM users
-        WHERE first_seen >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') AT TIME ZONE 'Asia/Kuala_Lumpur')
-          AND first_seen <  ((DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + INTERVAL '1 day') AT TIME ZONE 'Asia/Kuala_Lumpur')
+        FROM registration_log
+        WHERE (created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+        =
+        (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
     """)
 
-    c = cur.fetchone()[0]
+    count = cur.fetchone()[0]
     cur.close()
     conn.close()
-    return c
+    return count
 
 
 def get_month_count():
@@ -188,47 +222,85 @@ def get_month_count():
 
     cur.execute("""
         SELECT COUNT(*)
-        FROM users
-        WHERE first_seen >= (DATE_TRUNC('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') AT TIME ZONE 'Asia/Kuala_Lumpur')
-          AND first_seen <  ((DATE_TRUNC('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + INTERVAL '1 month') AT TIME ZONE 'Asia/Kuala_Lumpur')
+        FROM registration_log
+        WHERE DATE_TRUNC('month', created_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+        =
+        DATE_TRUNC('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
     """)
 
-    c = cur.fetchone()[0]
+    count = cur.fetchone()[0]
     cur.close()
     conn.close()
-    return c
+    return count
 
 
 # =========================
-# BOT
+# START
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    ensure_user(user.id, user.username or user.first_name)
+    username = user.username or user.first_name
+    user_id = user.id
 
-    today = get_today_count() + get_int_setting("manual_today")
-    month = get_month_count() + get_int_setting("manual_month")
+    ensure_user(user_id, username)
 
-    text = get_setting("welcome_text").format(
-        username=user.first_name,
-        user_id=user.id,
-        today=today,
-        month=month
+    today = get_today_count() + get_int_setting("manual_today_add")
+    month = get_month_count() + get_int_setting("manual_month_add")
+
+    text = get_setting("welcome_text")
+    text = text.replace("{username}", username)
+    text = text.replace("{user_id}", str(user_id))
+    text = text.replace("{today_count}", str(today))
+    text = text.replace("{month_count}", str(month))
+
+    keyboard = [
+        [InlineKeyboardButton("🚀 Register", url=get_setting("register_url"))],
+        [InlineKeyboardButton("📋 Menu", callback_data="menu")]
+    ]
+
+    await update.message.reply_photo(
+        photo=get_setting("main_banner"),
+        caption=text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await update.message.reply_text(text)
+
+# =========================
+# BOT CORE
+# =========================
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Menu System Active")
+
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+
+    if q.data == "menu":
+        await q.message.reply_text("Menu Opened")
 
 
 # =========================
-# BOT RUN
+# WEBHOOK FIX + BOT RUN
 # =========================
+def clear_webhook():
+    try:
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook")
+        print("Webhook cleared")
+    except:
+        pass
+
+
 def run_bot():
     async def main():
+        clear_webhook()
+
         app = Application.builder().token(BOT_TOKEN).build()
 
         app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        app.add_handler(CallbackQueryHandler(button_handler))
 
-        print("[BOT] running...")
         await app.initialize()
         await app.start()
         await app.updater.start_polling()
@@ -241,20 +313,18 @@ def run_bot():
 
 
 # =========================
-# START SYSTEM
+# FLASK THREAD
+# =========================
+def flask_run():
+    flask_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+
+
+# =========================
+# MAIN
 # =========================
 init_db()
-clear_webhook()
 
-if os.getenv("RUN_MAIN") != "true":
-    t = threading.Thread(target=run_bot, daemon=True)
-    t.start()
+threading.Thread(target=run_bot, daemon=True).start()
+threading.Thread(target=flask_run, daemon=True).start()
 
-
-@flask_app.route("/")
-def home():
-    return "OK"
-
-
-if __name__ == "__main__":
-    flask_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+print("System Running...")

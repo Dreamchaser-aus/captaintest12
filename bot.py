@@ -678,7 +678,11 @@ def admin_dashboard():
         return redirect("/admin/login")
 
     if request.method == "POST":
-        set_setting("main_banner", request.form.get("main_banner", ""))
+
+        main_banner = request.form.get("main_banner")
+        if main_banner:
+            set_setting("main_banner", main_banner)
+
         set_setting("welcome_text", request.form.get("welcome_text", ""))
         set_setting("about_text", request.form.get("about_text", ""))
         set_setting("register_url", request.form.get("register_url", ""))

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard</title>
+
   <style>
     body {
       margin: 0;
@@ -13,12 +14,12 @@
     }
 
     .topbar {
-      background: rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
       padding: 16px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
     .topbar h2 {
@@ -29,6 +30,7 @@
     .nav {
       display: flex;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
     .nav a {
@@ -39,7 +41,6 @@
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
       color: white;
-      transition: 0.2s;
     }
 
     .nav a:hover {
@@ -48,16 +49,9 @@
     }
 
     .container {
-      max-width: 1100px;
+      max-width: 1000px;
       margin: auto;
       padding: 20px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-top: 18px;
     }
 
     .card {
@@ -65,30 +59,30 @@
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px;
       padding: 18px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
 
-    .card h3 {
-      margin: 0 0 10px;
-      font-size: 16px;
+    h3 {
+      margin: 0 0 12px;
       color: #38bdf8;
+      font-size: 16px;
     }
 
     label {
       font-size: 13px;
-      display: block;
-      margin-bottom: 6px;
-      color: rgba(255,255,255,0.7);
+      opacity: 0.8;
     }
 
     input, textarea {
       width: 100%;
-      padding: 12px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      padding: 10px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(0,0,0,0.25);
       color: white;
-      font-size: 14px;
       outline: none;
       box-sizing: border-box;
     }
@@ -98,126 +92,135 @@
       resize: vertical;
     }
 
-    input:focus, textarea:focus {
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 2px rgba(56,189,248,0.25);
-    }
-
-    .btn {
-      width: 100%;
-      padding: 13px;
+    button {
+      padding: 10px 16px;
+      border-radius: 10px;
       border: none;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #38bdf8, #2563eb);
-      color: white;
+      background: #38bdf8;
+      color: black;
       font-weight: bold;
       cursor: pointer;
-      margin-top: 15px;
       transition: 0.2s;
     }
 
-    .btn:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
+    button:hover {
+      background: #0ea5e9;
     }
 
-    .full {
-      grid-column: span 2;
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
 
-    .small {
-      font-size: 12px;
-      opacity: 0.6;
-      margin-top: 5px;
-    }
-
-    @media(max-width: 850px){
+    @media(max-width: 800px){
       .grid {
         grid-template-columns: 1fr;
       }
-      .full {
-        grid-column: span 1;
-      }
     }
+
+    .upload-box {
+      border: 1px dashed rgba(255,255,255,0.3);
+      padding: 14px;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.6;
+      margin-top: -6px;
+      margin-bottom: 10px;
+    }
+
   </style>
 </head>
+
 <body>
 
   <div class="topbar">
     <h2>⚙️ Admin Dashboard</h2>
+
     <div class="nav">
       <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
       <a href="/admin/promos">Promos</a>
       <a href="/admin/banner_buttons">Banner Buttons</a>
-      <a href="/admin/users">Users</a>
       <a href="/admin/logout">Logout</a>
     </div>
   </div>
 
   <div class="container">
-    <form method="POST">
 
-      <div class="grid">
+    <!-- SETTINGS -->
+    <div class="card">
+      <h3>⚙️ General Settings</h3>
 
-        <div class="card full">
-          <h3>🖼 Main Banner</h3>
-          <label>Banner Image URL</label>
-          <input type="text" name="main_banner" value="{{ data.main_banner }}">
-          <div class="small">Recommended: Imgur / CDN URL</div>
-        </div>
+      <form method="POST">
 
-        <div class="card full">
-          <h3>👋 Welcome Text</h3>
-          <label>Welcome Caption</label>
-          <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
-          <div class="small">
-            Available placeholders: {username} {user_id} {today_count} {month_count}
+        <label>Main Banner URL</label>
+        <input type="text" name="main_banner" value="{{ data.main_banner }}">
+
+        <label>Welcome Text</label>
+        <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
+
+        <label>About Text</label>
+        <textarea name="about_text">{{ data.about_text }}</textarea>
+
+        <div class="grid">
+
+          <div>
+            <label>Register URL</label>
+            <input type="text" name="register_url" value="{{ data.register_url }}">
           </div>
+
+          <div>
+            <label>Telegram Support</label>
+            <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
+          </div>
+
         </div>
 
-        <div class="card">
-          <h3>📌 About</h3>
-          <label>About Text</label>
-          <textarea name="about_text">{{ data.about_text }}</textarea>
+        <label>WhatsApp URL</label>
+        <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
+
+        <div class="grid">
+
+          <div>
+            <label>Manual Today Add</label>
+            <input type="number" name="manual_today_add" value="{{ data.manual_today_add }}">
+          </div>
+
+          <div>
+            <label>Manual Month Add</label>
+            <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
+          </div>
+
         </div>
 
-        <div class="card">
-          <h3>🚀 Register URL</h3>
-          <label>Register Link</label>
-          <input type="text" name="register_url" value="{{ data.register_url }}">
-        </div>
+        <button type="submit">💾 Save Settings</button>
+      </form>
+    </div>
 
-        <div class="card">
-          <h3>💬 Telegram Support</h3>
-          <label>Support Link</label>
-          <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
-        </div>
+    <!-- UPLOAD BANNER -->
+    <div class="card">
+      <h3>📤 Upload Banner (Cloudinary)</h3>
 
-        <div class="card">
-          <h3>📞 WhatsApp</h3>
-          <label>WhatsApp Link</label>
-          <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
-        </div>
-
-        <div class="card">
-          <h3>📊 Manual Today Add</h3>
-          <label>Manual Add Today</label>
-          <input type="number" name="manual_today_add" value="{{ data.manual_today_add }}">
-        </div>
-
-        <div class="card">
-          <h3>📅 Manual Month Add</h3>
-          <label>Manual Add Month</label>
-          <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
-        </div>
-
-        <div class="card full">
-          <button class="btn" type="submit">💾 Save Settings</button>
-        </div>
-
+      <div class="hint">
+        Upload image → auto store in Cloudinary → replace main banner
       </div>
 
-    </form>
+      <form action="/admin/upload_banner" method="POST" enctype="multipart/form-data">
+
+        <div class="upload-box">
+          <input type="file" name="image" required>
+        </div>
+
+        <button type="submit" style="margin-top:10px;">Upload Banner</button>
+
+      </form>
+    </div>
+
   </div>
 
 </body>

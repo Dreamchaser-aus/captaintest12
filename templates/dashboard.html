@@ -1,177 +1,223 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Dashboard</title>
-    <meta charset="utf-8" />
-    <style>
-        body {
-            font-family: Arial;
-            background: #0f172a;
-            color: white;
-            padding: 30px;
-        }
-        .nav {
-            margin-bottom: 20px;
-            padding: 12px;
-            background: #111c33;
-            border-radius: 10px;
-        }
-        .nav a {
-            color: #60a5fa;
-            text-decoration: none;
-            margin-right: 15px;
-            font-weight: bold;
-        }
-        .nav a:hover {
-            text-decoration: underline;
-        }
-        .nav .logout {
-            color: #ff4d4d;
-        }
-        .box {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.25);
-        }
-        h1 {
-            margin-bottom: 10px;
-        }
-        h2 {
-            margin-top: 0;
-        }
-        label {
-            display: block;
-            margin-top: 12px;
-            font-size: 14px;
-            color: #cbd5e1;
-        }
-        input, textarea {
-            width: 100%;
-            padding: 12px;
-            margin-top: 6px;
-            border-radius: 8px;
-            border: none;
-            outline: none;
-            font-size: 14px;
-            background: #0b1220;
-            color: white;
-        }
-        textarea {
-            height: 140px;
-            resize: vertical;
-        }
-        button {
-            padding: 12px 20px;
-            background: #22c55e;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: bold;
-        }
-        button:hover {
-            background: #16a34a;
-        }
-        .hint {
-            color: #94a3b8;
-            font-size: 13px;
-            margin-top: 6px;
-            line-height: 1.5;
-        }
-        .split {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        @media(max-width: 900px) {
-            .split {
-                grid-template-columns: 1fr;
-            }
-        }
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 15px;
-            color: #facc15;
-        }
-    </style>
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
 
+    .topbar {
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav a {
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      transition: 0.2s;
+    }
+
+    .nav a:hover {
+      background: rgba(56,189,248,0.2);
+      border-color: rgba(56,189,248,0.4);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: #38bdf8;
+    }
+
+    label {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 6px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0,0,0,0.25);
+      color: white;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.25);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .full {
+      grid-column: span 2;
+    }
+
+    .small {
+      font-size: 12px;
+      opacity: 0.6;
+      margin-top: 5px;
+    }
+
+    @media(max-width: 850px){
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .full {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
 <body>
 
-<h1>Admin Dashboard</h1>
-
-<div class="nav">
-    <a href="/admin">Settings</a>
-    <a href="/admin/promos">Promos</a>
-    <a href="/admin/banner_buttons">Banner Buttons</a>
-    <a href="/admin/logout" class="logout">Logout</a>
-</div>
-
-<form method="POST">
-
-    <div class="box">
-        <h2>Basic Settings</h2>
-
-        <label>Main Banner URL</label>
-        <input type="text" name="main_banner" value="{{ data.main_banner }}">
-
-        <label>Welcome Text</label>
-        <div class="hint">
-            Supported variables:
-            <b>{username}</b> <b>{user_id}</b> <b>{today_count}</b> <b>{month_count}</b><br>
-            Example:<br>
-            📅 Today Register: {today_count}<br>
-            🗓 This Month Register: {month_count}
-        </div>
-        <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
-
-        <label>About Text</label>
-        <textarea name="about_text">{{ data.about_text }}</textarea>
-
-        <label>Register URL</label>
-        <input type="text" name="register_url" value="{{ data.register_url }}">
-
-        <label>Telegram Support URL</label>
-        <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
-
-        <label>WhatsApp URL</label>
-        <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
+  <div class="topbar">
+    <h2>⚙️ Admin Dashboard</h2>
+    <div class="nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/promos">Promos</a>
+      <a href="/admin/banner_buttons">Banner Buttons</a>
+      <a href="/admin/logout">Logout</a>
     </div>
+  </div>
 
-    <div class="box">
-        <h2>Manual Correction (Add External Registrations)</h2>
+  <div class="container">
+    <form method="POST">
 
-        <div class="hint">
-            This is used for adding real registrations from other channels (offline, ads, website etc).<br>
-            Bot will display: <b>real_count + manual_add</b>
+      <div class="grid">
+
+        <div class="card full">
+          <h3>🖼 Main Banner</h3>
+          <label>Banner Image URL</label>
+          <input type="text" name="main_banner" value="{{ data.main_banner }}">
+          <div class="small">Recommended: Imgur / CDN URL</div>
         </div>
 
-        <div class="split">
-            <div>
-                <label>Manual Today Add</label>
-                <input type="text" name="manual_today_add" value="{{ data.manual_today_add }}">
-                <div class="hint">Example: 50 (adds +50 to Today count)</div>
-            </div>
-
-            <div>
-                <label>Manual Month Add</label>
-                <input type="text" name="manual_month_add" value="{{ data.manual_month_add }}">
-                <div class="hint">Example: 2000 (adds +2000 to Month count)</div>
-            </div>
+        <div class="card full">
+          <h3>👋 Welcome Text</h3>
+          <label>Welcome Caption</label>
+          <textarea name="welcome_text">{{ data.welcome_text }}</textarea>
+          <div class="small">
+            Available placeholders: {username} {user_id} {today_count} {month_count}
+          </div>
         </div>
 
-        <div class="hint" style="margin-top:15px;">
-            ⚠️ Suggestion: Month Add should be larger than Today Add to look normal.
+        <div class="card">
+          <h3>📌 About</h3>
+          <label>About Text</label>
+          <textarea name="about_text">{{ data.about_text }}</textarea>
         </div>
-    </div>
 
-    <button type="submit">💾 Save Settings</button>
+        <div class="card">
+          <h3>🚀 Register URL</h3>
+          <label>Register Link</label>
+          <input type="text" name="register_url" value="{{ data.register_url }}">
+        </div>
 
-</form>
+        <div class="card">
+          <h3>💬 Telegram Support</h3>
+          <label>Support Link</label>
+          <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
+        </div>
+
+        <div class="card">
+          <h3>📞 WhatsApp</h3>
+          <label>WhatsApp Link</label>
+          <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
+        </div>
+
+        <div class="card">
+          <h3>📊 Manual Today Add</h3>
+          <label>Manual Add Today</label>
+          <input type="number" name="manual_today_add" value="{{ data.manual_today_add }}">
+        </div>
+
+        <div class="card">
+          <h3>📅 Manual Month Add</h3>
+          <label>Manual Add Month</label>
+          <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
+        </div>
+
+        <div class="card full">
+          <button class="btn" type="submit">💾 Save Settings</button>
+        </div>
+
+      </div>
+
+    </form>
+  </div>
 
 </body>
 </html>

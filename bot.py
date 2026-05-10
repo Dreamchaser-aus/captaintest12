@@ -941,13 +941,14 @@ def upload_banner():
         if not file:
             return "No file uploaded", 400
 
+        # 上传到 Cloudinary
         url = upload_to_cloudinary(file)
 
-        set_setting("main_banner", url)
+        # ❌ 不再更新 main_banner
 
         return render_template("dashboard.html",
             data={
-                "main_banner": url,
+                "main_banner": get_setting("main_banner"),
                 "welcome_text": get_setting("welcome_text"),
                 "about_text": get_setting("about_text"),
                 "register_url": get_setting("register_url"),

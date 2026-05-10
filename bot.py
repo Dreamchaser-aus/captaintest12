@@ -281,7 +281,9 @@ def get_users_paginated(search=None, page=1, per_page=50):
         total = cur.fetchone()[0]
 
         cur.execute("""
-            SELECT telegram_id, username, first_seen
+            SELECT telegram_id,
+                   username,
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
             FROM users
             WHERE CAST(telegram_id AS TEXT) ILIKE %s
                OR username ILIKE %s
@@ -295,7 +297,9 @@ def get_users_paginated(search=None, page=1, per_page=50):
         total = cur.fetchone()[0]
 
         cur.execute("""
-            SELECT telegram_id, username, first_seen
+            SELECT telegram_id,
+                   username,
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
             FROM users
             ORDER BY first_seen DESC
             LIMIT %s OFFSET %s

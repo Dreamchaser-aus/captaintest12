@@ -100,23 +100,10 @@
       color: black;
       font-weight: bold;
       cursor: pointer;
-      transition: 0.2s;
     }
 
     button:hover {
       background: #0ea5e9;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    @media(max-width: 800px){
-      .grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     .upload-box {
@@ -129,8 +116,21 @@
     .hint {
       font-size: 12px;
       opacity: 0.6;
-      margin-top: -6px;
       margin-bottom: 10px;
+    }
+
+    .success-box {
+      border: 1px solid #38bdf8;
+      padding: 14px;
+      border-radius: 12px;
+      margin-top: 12px;
+      background: rgba(56,189,248,0.08);
+    }
+
+    .copy-btn {
+      margin-top: 10px;
+      background: #22c55e;
+      color: white;
     }
 
   </style>
@@ -167,36 +167,20 @@
         <label>About Text</label>
         <textarea name="about_text">{{ data.about_text }}</textarea>
 
-        <div class="grid">
+        <label>Register URL</label>
+        <input type="text" name="register_url" value="{{ data.register_url }}">
 
-          <div>
-            <label>Register URL</label>
-            <input type="text" name="register_url" value="{{ data.register_url }}">
-          </div>
-
-          <div>
-            <label>Telegram Support</label>
-            <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
-          </div>
-
-        </div>
+        <label>Telegram Support</label>
+        <input type="text" name="telegram_support" value="{{ data.telegram_support }}">
 
         <label>WhatsApp URL</label>
         <input type="text" name="whatsapp_url" value="{{ data.whatsapp_url }}">
 
-        <div class="grid">
+        <label>Manual Today Add</label>
+        <input type="number" name="manual_today_add" value="{{ data.manual_today_add }}">
 
-          <div>
-            <label>Manual Today Add</label>
-            <input type="number" name="manual_today_add" value="{{ data.manual_today_add }}">
-          </div>
-
-          <div>
-            <label>Manual Month Add</label>
-            <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
-          </div>
-
-        </div>
+        <label>Manual Month Add</label>
+        <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
 
         <button type="submit">💾 Save Settings</button>
       </form>
@@ -207,7 +191,7 @@
       <h3>📤 Upload Banner (Cloudinary)</h3>
 
       <div class="hint">
-        Upload image → auto store in Cloudinary → replace main banner
+        Upload image → auto store in Cloudinary → update main banner
       </div>
 
       <form action="/admin/upload_banner" method="POST" enctype="multipart/form-data">
@@ -216,9 +200,40 @@
           <input type="file" name="image" required>
         </div>
 
-        <button type="submit" style="margin-top:10px;">Upload Banner</button>
+        <button type="submit" style="margin-top:10px;">
+          Upload Banner
+        </button>
 
       </form>
+
+      <!-- SUCCESS RESULT -->
+      {% if uploaded_url %}
+      <div class="success-box">
+
+        <h3>✅ Upload Success</h3>
+
+        <input type="text" id="bannerUrl" value="{{ uploaded_url }}" readonly>
+
+        <button class="copy-btn" onclick="copyUrl()">
+          📋 Copy URL
+        </button>
+
+        <p style="font-size:12px; opacity:0.6; margin-top:10px;">
+          Stored in Cloudinary (permanent link)
+        </p>
+
+      </div>
+
+      <script>
+        function copyUrl() {
+          const input = document.getElementById("bannerUrl");
+          input.select();
+          document.execCommand("copy");
+          alert("Copied!");
+        }
+      </script>
+      {% endif %}
+
     </div>
 
   </div>

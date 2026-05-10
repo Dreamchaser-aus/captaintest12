@@ -4,44 +4,197 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Users</title>
+
   <style>
-    body { margin:0; font-family:Arial; background:#0f172a; color:white; }
-    .topbar { padding:16px 20px; display:flex; justify-content:space-between; align-items:center;
-      background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.08); }
-    .nav { display:flex; gap:10px; }
-    .nav a { text-decoration:none; padding:10px 14px; border-radius:10px; font-size:13px;
-      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:white; }
-    .nav a:hover { background:rgba(56,189,248,0.2); border-color:rgba(56,189,248,0.4); }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
 
-    .container { max-width:1100px; margin:auto; padding:20px; }
+    .topbar {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
 
-    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
-    .stat { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
-      border-radius:16px; padding:16px; text-align:center; }
-    .stat h3 { margin:0; font-size:13px; opacity:0.7; }
-    .stat p { margin:10px 0 0; font-size:26px; font-weight:bold; color:#38bdf8; }
+    .topbar h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+    }
 
-    .card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
-      border-radius:16px; padding:16px; }
+    .nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-    input { width:100%; padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
-      background:rgba(0,0,0,0.25); color:white; font-size:14px; outline:none; box-sizing:border-box; }
+    .nav a {
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      transition: 0.2s;
+    }
 
-    table { width:100%; border-collapse:collapse; margin-top:14px; overflow:hidden; border-radius:12px; }
-    th, td { padding:12px; border-bottom:1px solid rgba(255,255,255,0.08); font-size:14px; text-align:left; }
-    th { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.8); }
+    .nav a:hover {
+      background: rgba(56,189,248,0.2);
+      border-color: rgba(56,189,248,0.4);
+    }
 
-    tr:hover td { background:rgba(56,189,248,0.06); }
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      padding: 20px;
+    }
 
-    @media(max-width:900px){
-      .stats { grid-template-columns:1fr; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    .stat h3 {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.7;
+      font-weight: normal;
+    }
+
+    .stat p {
+      margin: 10px 0 0;
+      font-size: 26px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    .card h3 {
+      margin: 0;
+      color: #38bdf8;
+      font-size: 16px;
+    }
+
+    .desc {
+      margin: 8px 0 14px;
+      opacity: 0.6;
+      font-size: 13px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0,0,0,0.25);
+      color: white;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.25);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.8);
+    }
+
+    tr:hover td {
+      background: rgba(56,189,248,0.06);
+    }
+
+    .pagination {
+      margin-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pagination-info {
+      font-size: 13px;
+      opacity: 0.7;
+    }
+
+    .pagination-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .page-btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+
+    .page-btn:hover {
+      background: rgba(56,189,248,0.2);
+      border-color: rgba(56,189,248,0.4);
+    }
+
+    @media(max-width: 900px){
+      .stats {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
+
 <body>
 
   <div class="topbar">
     <h2>👥 Users</h2>
+
     <div class="nav">
       <a href="/admin">Dashboard</a>
       <a href="/admin/users">Users</a>
@@ -53,24 +206,28 @@
 
   <div class="container">
 
+    <!-- STATS -->
     <div class="stats">
       <div class="stat">
         <h3>Total Users</h3>
         <p>{{ total }}</p>
       </div>
+
       <div class="stat">
         <h3>Today Users</h3>
         <p>{{ today }}</p>
       </div>
+
       <div class="stat">
         <h3>This Month</h3>
         <p>{{ month }}</p>
       </div>
     </div>
 
+    <!-- USERS TABLE -->
     <div class="card">
-      <h3 style="margin:0;color:#38bdf8;">🔍 Search User</h3>
-      <p style="margin:8px 0;opacity:0.6;font-size:13px;">Search by Telegram ID or Username</p>
+      <h3>🔍 Search User</h3>
+      <div class="desc">Search by Telegram ID or Username</div>
 
       <form method="GET">
         <input type="text" name="q" value="{{ q }}" placeholder="Example: 123456789 or username">
@@ -84,6 +241,7 @@
             <th>First Seen</th>
           </tr>
         </thead>
+
         <tbody>
           {% for u in users %}
           <tr>
@@ -94,6 +252,27 @@
           {% endfor %}
         </tbody>
       </table>
+
+      <!-- PAGINATION -->
+      <div class="pagination">
+
+        <div class="pagination-info">
+          Page {{ page }} / {{ total_pages }} | Results: {{ total_filtered }}
+        </div>
+
+        <div class="pagination-buttons">
+
+          {% if page > 1 %}
+            <a class="page-btn" href="/admin/users?q={{ q }}&page={{ page-1 }}">⬅ Prev</a>
+          {% endif %}
+
+          {% if page < total_pages %}
+            <a class="page-btn" href="/admin/users?q={{ q }}&page={{ page+1 }}">Next ➡</a>
+          {% endif %}
+
+        </div>
+
+      </div>
 
     </div>
 

@@ -265,31 +265,49 @@ def ensure_user(user_id: int, username: str):
     cur.close()
     conn.close()
 
-def get_users_list(search=None, limit=200):
+def get_users_paginated(search=None, page=1, per_page=50):
+    offset = (page - 1) * per_page
+
     conn = get_db_connection()
     cur = conn.cursor()
 
     if search:
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM users
+            WHERE CAST(telegram_id AS TEXT) ILIKE %s
+               OR username ILIKE %s
+        """, (f"%{search}%", f"%{search}%"))
+        total = cur.fetchone()[0]
+
         cur.execute("""
             SELECT telegram_id, username, first_seen
             FROM users
             WHERE CAST(telegram_id AS TEXT) ILIKE %s
                OR username ILIKE %s
             ORDER BY first_seen DESC
-            LIMIT %s
-        """, (f"%{search}%", f"%{search}%", limit))
+            LIMIT %s OFFSET %s
+        """, (f"%{search}%", f"%{search}%", per_page, offset))
+        rows = cur.fetchall()
+
     else:
+        cur.execute("SELECT COUNT(*) FROM users")
+        total = cur.fetchone()[0]
+
         cur.execute("""
             SELECT telegram_id, username, first_seen
             FROM users
             ORDER BY first_seen DESC
-            LIMIT %s
-        """, (limit,))
+            LIMIT %s OFFSET %s
+        """, (per_page, offset))
+        rows = cur.fetchall()
 
-    rows = cur.fetchall()
     cur.close()
     conn.close()
-    return rows
+
+    total_pages = (total + per_page - 1) // per_page
+
+    return rows, total, total_pages
 
 
 def get_total_users():
@@ -738,20 +756,29 @@ def admin_users():
         return redirect("/admin/login")
 
     q = request.args.get("q", "").strip()
+    page = int(request.args.get("page", 1))
+    per_page = 50
 
-    total = get_total_users()
+    total_users = get_total_users()
     today = get_today_count()
     month = get_month_count()
 
-    users = get_users_list(search=q if q else None, limit=200)
+    users, total_filtered, total_pages = get_users_paginated(
+        search=q if q else None,
+        page=page,
+        per_page=per_page
+    )
 
     return render_template(
         "users.html",
-        total=total,
+        total=total_users,
         today=today,
         month=month,
         users=users,
-        q=q
+        q=q,
+        page=page,
+        total_pages=total_pages,
+        total_filtered=total_filtered
     )
 
 # =========================

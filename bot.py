@@ -935,16 +935,33 @@ def upload_banner():
     if not require_login():
         return redirect("/admin/login")
 
-    file = request.files.get("image")
+    try:
+        file = request.files.get("image")
 
-    if not file:
-        return "No file uploaded", 400
+        if not file:
+            return "No file uploaded", 400
 
-    url = upload_to_cloudinary(file)
+        url = upload_to_cloudinary(file)
 
-    set_setting("main_banner", url)
+        set_setting("main_banner", url)
 
-    return redirect("/admin")
+        return render_template("dashboard.html",
+            data={
+                "main_banner": url,
+                "welcome_text": get_setting("welcome_text"),
+                "about_text": get_setting("about_text"),
+                "register_url": get_setting("register_url"),
+                "telegram_support": get_setting("telegram_support"),
+                "whatsapp_url": get_setting("whatsapp_url"),
+                "manual_today_add": get_setting("manual_today_add"),
+                "manual_month_add": get_setting("manual_month_add")
+            },
+            uploaded_url=url
+        )
+
+    except Exception as e:
+        print("UPLOAD ERROR:", e)
+        return f"Internal Error: {str(e)}", 500
 
 # =========================
 # START SYSTEM

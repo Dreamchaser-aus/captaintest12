@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Users</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
+
+    .topbar {
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav a {
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      transition: 0.2s;
+    }
+
+    .nav a:hover {
+      background: rgba(56,189,248,0.2);
+      border-color: rgba(56,189,248,0.4);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    .stat-card h3 {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+
+    .stat-card p {
+      margin: 10px 0 0;
+      font-size: 28px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.8);
+    }
+
+    tr:hover td {
+      background: rgba(56,189,248,0.06);
+    }
+
+    @media(max-width: 900px){
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h2>👥 User List</h2>
+    <div class="nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/promos">Promos</a>
+      <a href="/admin/banner_buttons">Banner Buttons</a>
+      <a href="/admin/logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Total Users</h3>
+        <p>{{ total }}</p>
+      </div>
+
+      <div class="stat-card">
+        <h3>Today Users (MY)</h3>
+        <p>{{ today }}</p>
+      </div>
+
+      <div class="stat-card">
+        <h3>This Month (MY)</h3>
+        <p>{{ month }}</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;color:#38bdf8;">📋 Latest Users (Last 500)</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Telegram ID</th>
+            <th>Username</th>
+            <th>First Seen (MY)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u[0] }}</td>
+            <td>{{ u[1] }}</td>
+            <td>{{ u[2] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

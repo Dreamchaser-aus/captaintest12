@@ -61,7 +61,14 @@ def clear_webhook():
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL not found. Please set Railway PostgreSQL DATABASE_URL in Variables.")
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+
+    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+
+    cur = conn.cursor()
+    cur.execute("SET TIME ZONE 'Asia/Kuala_Lumpur';")
+    cur.close()
+
+    return conn
 
 
 def init_db():
@@ -258,17 +265,26 @@ def ensure_user(user_id: int, username: str):
     cur.close()
     conn.close()
 
-def get_all_users(limit=500):
+def get_users_list(search=None, limit=200):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT telegram_id, username,
-               first_seen AT TIME ZONE 'Asia/Kuala_Lumpur' AS first_seen_my
-        FROM users
-        ORDER BY first_seen DESC
-        LIMIT %s
-    """, (limit,))
+    if search:
+        cur.execute("""
+            SELECT telegram_id, username, first_seen
+            FROM users
+            WHERE CAST(telegram_id AS TEXT) ILIKE %s
+               OR username ILIKE %s
+            ORDER BY first_seen DESC
+            LIMIT %s
+        """, (f"%{search}%", f"%{search}%", limit))
+    else:
+        cur.execute("""
+            SELECT telegram_id, username, first_seen
+            FROM users
+            ORDER BY first_seen DESC
+            LIMIT %s
+        """, (limit,))
 
     rows = cur.fetchall()
     cur.close()
@@ -285,16 +301,14 @@ def get_total_users():
     conn.close()
     return total
 
-def get_today_count_malaysia():
+def get_today_count():
     conn = get_db_connection()
     cur = conn.cursor()
 
     cur.execute("""
         SELECT COUNT(*)
         FROM users
-        WHERE (first_seen AT TIME ZONE 'Asia/Kuala_Lumpur')::date
-              =
-              (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+        WHERE DATE(first_seen) = DATE(NOW())
     """)
 
     count = cur.fetchone()[0]
@@ -303,16 +317,14 @@ def get_today_count_malaysia():
     return count
 
 
-def get_month_count_malaysia():
+def get_month_count():
     conn = get_db_connection()
     cur = conn.cursor()
 
     cur.execute("""
         SELECT COUNT(*)
         FROM users
-        WHERE DATE_TRUNC('month', first_seen AT TIME ZONE 'Asia/Kuala_Lumpur')
-              =
-              DATE_TRUNC('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+        WHERE DATE_TRUNC('month', first_seen) = DATE_TRUNC('month', NOW())
     """)
 
     count = cur.fetchone()[0]
@@ -725,18 +737,21 @@ def admin_users():
     if not require_login():
         return redirect("/admin/login")
 
-    total = get_total_users()
-    today = get_today_count_malaysia()
-    month = get_month_count_malaysia()
+    q = request.args.get("q", "").strip()
 
-    users = get_all_users(limit=500)
+    total = get_total_users()
+    today = get_today_count()
+    month = get_month_count()
+
+    users = get_users_list(search=q if q else None, limit=200)
 
     return render_template(
         "users.html",
         total=total,
         today=today,
         month=month,
-        users=users
+        users=users,
+        q=q
     )
 
 # =========================

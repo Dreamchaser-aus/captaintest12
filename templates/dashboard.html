@@ -22,11 +22,6 @@
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
-    .topbar h2 {
-      margin: 0;
-      font-size: 18px;
-    }
-
     .nav {
       display: flex;
       gap: 10px;
@@ -43,11 +38,6 @@
       color: white;
     }
 
-    .nav a:hover {
-      background: rgba(56,189,248,0.2);
-      border-color: rgba(56,189,248,0.4);
-    }
-
     .container {
       max-width: 1000px;
       margin: auto;
@@ -60,18 +50,11 @@
       border-radius: 16px;
       padding: 18px;
       margin-bottom: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
 
     h3 {
-      margin: 0 0 12px;
       color: #38bdf8;
-      font-size: 16px;
-    }
-
-    label {
-      font-size: 13px;
-      opacity: 0.8;
+      margin-bottom: 10px;
     }
 
     input, textarea {
@@ -83,7 +66,6 @@
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(0,0,0,0.25);
       color: white;
-      outline: none;
       box-sizing: border-box;
     }
 
@@ -110,27 +92,15 @@
       border: 1px dashed rgba(255,255,255,0.3);
       padding: 14px;
       border-radius: 12px;
-      margin-top: 10px;
-    }
-
-    .hint {
-      font-size: 12px;
-      opacity: 0.6;
       margin-bottom: 10px;
     }
 
-    .success-box {
-      border: 1px solid #38bdf8;
-      padding: 14px;
-      border-radius: 12px;
-      margin-top: 12px;
-      background: rgba(56,189,248,0.08);
-    }
-
-    .copy-btn {
+    .success {
       margin-top: 10px;
-      background: #22c55e;
-      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #38bdf8;
+      background: rgba(56,189,248,0.1);
     }
 
   </style>
@@ -143,20 +113,21 @@
 
     <div class="nav">
       <a href="/admin">Dashboard</a>
-      <a href="/admin/promos">Promos</a>
-      <a href="/admin/banner_buttons">Banner Buttons</a>
       <a href="/admin/users">Users</a>
+      <a href="/admin/promos">Promos</a>
+      <a href="/admin/banner_buttons">Buttons</a>
       <a href="/admin/logout">Logout</a>
     </div>
   </div>
 
   <div class="container">
 
-    <!-- SETTINGS -->
+    <!-- ================= SETTINGS ================= -->
     <div class="card">
-      <h3>⚙️ General Settings</h3>
+      <h3>⚙️ Settings</h3>
 
-      <form method="POST">
+      <!-- ❗ IMPORTANT: POST to /admin -->
+      <form method="POST" action="/admin">
 
         <label>Main Banner URL</label>
         <input type="text" name="main_banner" value="{{ data.main_banner }}">
@@ -183,50 +154,42 @@
         <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
 
         <button type="submit">💾 Save Settings</button>
+
       </form>
     </div>
 
-    <!-- UPLOAD BANNER -->
+    <!-- ================= UPLOAD BANNER ================= -->
     <div class="card">
       <h3>📤 Upload Banner (Cloudinary)</h3>
 
-      <div class="hint">
-        Upload image → auto store in Cloudinary → update main banner
-      </div>
-
-      <form action="/admin/uploadbanner" method="POST" enctype="multipart/form-data">
+      <!-- ❗ IMPORTANT: POST to upload route -->
+      <form method="POST" action="/admin/upload_banner" enctype="multipart/form-data">
 
         <div class="upload-box">
           <input type="file" name="image" required>
         </div>
 
-        <button type="submit" style="margin-top:10px;">
-          Upload Banner
-        </button>
+        <button type="submit">Upload Image</button>
 
       </form>
 
-      <!-- SUCCESS RESULT -->
+      <!-- ================= SUCCESS RESULT ================= -->
       {% if uploaded_url %}
-      <div class="success-box">
+      <div class="success">
 
         <h3>✅ Upload Success</h3>
 
-        <input type="text" id="bannerUrl" value="{{ uploaded_url }}" readonly>
+        <input type="text" id="urlBox" value="{{ uploaded_url }}" readonly>
 
-        <button class="copy-btn" onclick="copyUrl()">
-          📋 Copy URL
+        <button onclick="copyUrl()" style="margin-top:10px;background:#22c55e;color:white;">
+          📋 Copy Link
         </button>
-
-        <p style="font-size:12px; opacity:0.6; margin-top:10px;">
-          Stored in Cloudinary (permanent link)
-        </p>
 
       </div>
 
       <script>
         function copyUrl() {
-          const input = document.getElementById("bannerUrl");
+          const input = document.getElementById("urlBox");
           input.select();
           document.execCommand("copy");
           alert("Copied!");

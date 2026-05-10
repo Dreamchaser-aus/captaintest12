@@ -5,120 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Users</title>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-    }
+    body { margin:0; font-family:Arial; background:#0f172a; color:white; }
+    .topbar { padding:16px 20px; display:flex; justify-content:space-between; align-items:center;
+      background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.08); }
+    .nav { display:flex; gap:10px; }
+    .nav a { text-decoration:none; padding:10px 14px; border-radius:10px; font-size:13px;
+      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:white; }
+    .nav a:hover { background:rgba(56,189,248,0.2); border-color:rgba(56,189,248,0.4); }
 
-    .topbar {
-      background: rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .container { max-width:1100px; margin:auto; padding:20px; }
 
-    .nav {
-      display: flex;
-      gap: 10px;
-    }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+    .stat { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px; padding:16px; text-align:center; }
+    .stat h3 { margin:0; font-size:13px; opacity:0.7; }
+    .stat p { margin:10px 0 0; font-size:26px; font-weight:bold; color:#38bdf8; }
 
-    .nav a {
-      text-decoration: none;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: white;
-      transition: 0.2s;
-    }
+    .card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px; padding:16px; }
 
-    .nav a:hover {
-      background: rgba(56,189,248,0.2);
-      border-color: rgba(56,189,248,0.4);
-    }
+    input { width:100%; padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
+      background:rgba(0,0,0,0.25); color:white; font-size:14px; outline:none; box-sizing:border-box; }
 
-    .container {
-      max-width: 1100px;
-      margin: auto;
-      padding: 20px;
-    }
+    table { width:100%; border-collapse:collapse; margin-top:14px; overflow:hidden; border-radius:12px; }
+    th, td { padding:12px; border-bottom:1px solid rgba(255,255,255,0.08); font-size:14px; text-align:left; }
+    th { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.8); }
 
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin-bottom: 18px;
-    }
+    tr:hover td { background:rgba(56,189,248,0.06); }
 
-    .stat-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 18px;
-      text-align: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-    }
-
-    .stat-card h3 {
-      margin: 0;
-      font-size: 13px;
-      opacity: 0.7;
-    }
-
-    .stat-card p {
-      margin: 10px 0 0;
-      font-size: 28px;
-      font-weight: bold;
-      color: #38bdf8;
-    }
-
-    .card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 12px;
-    }
-
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      text-align: left;
-      font-size: 14px;
-    }
-
-    th {
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.8);
-    }
-
-    tr:hover td {
-      background: rgba(56,189,248,0.06);
-    }
-
-    @media(max-width: 900px){
-      .stats {
-        grid-template-columns: 1fr;
-      }
+    @media(max-width:900px){
+      .stats { grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
 
   <div class="topbar">
-    <h2>👥 User List</h2>
+    <h2>👥 Users</h2>
     <div class="nav">
       <a href="/admin">Dashboard</a>
       <a href="/admin/users">Users</a>
@@ -131,31 +54,34 @@
   <div class="container">
 
     <div class="stats">
-      <div class="stat-card">
+      <div class="stat">
         <h3>Total Users</h3>
         <p>{{ total }}</p>
       </div>
-
-      <div class="stat-card">
-        <h3>Today Users (MY)</h3>
+      <div class="stat">
+        <h3>Today Users</h3>
         <p>{{ today }}</p>
       </div>
-
-      <div class="stat-card">
-        <h3>This Month (MY)</h3>
+      <div class="stat">
+        <h3>This Month</h3>
         <p>{{ month }}</p>
       </div>
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0;color:#38bdf8;">📋 Latest Users (Last 500)</h3>
+      <h3 style="margin:0;color:#38bdf8;">🔍 Search User</h3>
+      <p style="margin:8px 0;opacity:0.6;font-size:13px;">Search by Telegram ID or Username</p>
+
+      <form method="GET">
+        <input type="text" name="q" value="{{ q }}" placeholder="Example: 123456789 or username">
+      </form>
 
       <table>
         <thead>
           <tr>
             <th>Telegram ID</th>
             <th>Username</th>
-            <th>First Seen (MY)</th>
+            <th>First Seen</th>
           </tr>
         </thead>
         <tbody>

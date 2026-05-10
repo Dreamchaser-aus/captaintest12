@@ -258,6 +258,32 @@ def ensure_user(user_id: int, username: str):
     cur.close()
     conn.close()
 
+def get_all_users(limit=500):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT telegram_id, username,
+               first_seen AT TIME ZONE 'Asia/Kuala_Lumpur' AS first_seen_my
+        FROM users
+        ORDER BY first_seen DESC
+        LIMIT %s
+    """, (limit,))
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def get_total_users():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users")
+    total = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return total
 
 def get_today_count_malaysia():
     conn = get_db_connection()
@@ -694,6 +720,24 @@ def admin_toggle_promo(promo_id):
 
     return redirect("/admin/promos")
 
+@flask_app.route("/admin/users")
+def admin_users():
+    if not require_login():
+        return redirect("/admin/login")
+
+    total = get_total_users()
+    today = get_today_count_malaysia()
+    month = get_month_count_malaysia()
+
+    users = get_all_users(limit=500)
+
+    return render_template(
+        "users.html",
+        total=total,
+        today=today,
+        month=month,
+        users=users
+    )
 
 # =========================
 # PROMO EDIT + BUTTONS

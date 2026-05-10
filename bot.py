@@ -2,6 +2,8 @@ import os
 import threading
 import asyncio
 import psycopg2
+import cloudinary
+import cloudinary.uploader
 
 from urllib.request import urlopen
 
@@ -20,6 +22,13 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
     filters
+)
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUD_NAME"),
+    api_key=os.getenv("CLOUD_API_KEY"),
+    api_secret=os.getenv("CLOUD_API_SECRET"),
+    secure=True
 )
 
 # =========================
@@ -54,6 +63,13 @@ def clear_webhook():
     except Exception as e:
         print("Webhook clear failed:", e)
 
+def upload_to_cloudinary(file):
+    result = cloudinary.uploader.upload(
+        file,
+        folder="telegram_bot",
+        resource_type="image"
+    )
+    return result["secure_url"]
 
 # =========================
 # DB
@@ -914,6 +930,21 @@ def admin_delete_banner_button(button_id):
 
     return redirect("/admin/banner_buttons")
 
+@flask_app.route("/admin/upload_banner", methods=["POST"])
+def upload_banner():
+    if not require_login():
+        return redirect("/admin/login")
+
+    file = request.files.get("image")
+
+    if not file:
+        return "No file uploaded", 400
+
+    url = upload_to_cloudinary(file)
+
+    set_setting("main_banner", url)
+
+    return redirect("/admin")
 
 # =========================
 # START SYSTEM

@@ -481,8 +481,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ensure_user(user_id, username)
 
-    real_today = get_today_count_malaysia()
-    real_month = get_month_count_malaysia()
+    real_today = get_today_count()
+    real_month = get_month_count()
 
     manual_today = get_int_setting("manual_today_add", 0)
     manual_month = get_int_setting("manual_month_add", 0)

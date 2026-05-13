@@ -663,13 +663,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promo = get_promo_by_title(msg)
     if promo:
         promo_id, title, image_url, caption = promo
-        await send_promo(update, promo_id, image_url, caption)
-        return
-await update.message.reply_text(
-    "❗ Invalid command.\n\n✅ Please click /start or use the buttons below.",
-    reply_markup=base_keyboard()
-)
 
+        await update.message.reply_text(
+            "❗ Invalid command.\n\n✅ Please click /start or use the buttons below.",
+            reply_markup=base_keyboard()
+        )
+        return
+        
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()

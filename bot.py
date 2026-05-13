@@ -664,11 +664,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if promo:
         promo_id, title, image_url, caption = promo
 
+        # ❗ FALLBACK (NEW)
+        # =========================
         await update.message.reply_text(
-            "❗ Invalid command.\n\n✅ Please click /start or use the buttons below.",
+            "❗ Invalid command detected.\n\n👉 Please click /start to continue.",
             reply_markup=base_keyboard()
         )
-        return
         
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Promos</title>
+  <title>Promo Manager</title>
+
   <style>
     body {
       margin: 0;
@@ -13,17 +14,23 @@
     }
 
     .topbar {
-      background: rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
       padding: 16px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 18px;
     }
 
     .nav {
       display: flex;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
     .nav a {
@@ -34,7 +41,6 @@
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
       color: white;
-      transition: 0.2s;
     }
 
     .nav a:hover {
@@ -53,147 +59,233 @@
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px;
       padding: 18px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
     }
 
-    .card h3 {
-      margin: 0 0 10px;
+    h3 {
+      margin: 0 0 12px;
       color: #38bdf8;
+      font-size: 16px;
+    }
+
+    label {
+      font-size: 13px;
+      opacity: 0.8;
     }
 
     input, textarea {
       width: 100%;
-      padding: 12px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      padding: 10px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(0,0,0,0.25);
       color: white;
-      font-size: 14px;
       outline: none;
       box-sizing: border-box;
-      margin-bottom: 10px;
     }
 
     textarea {
-      min-height: 90px;
+      min-height: 110px;
       resize: vertical;
     }
 
-    .btn {
-      padding: 10px 14px;
+    button {
+      padding: 10px 16px;
       border-radius: 10px;
       border: none;
-      cursor: pointer;
-      font-weight: bold;
-      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      background: #22c55e;
       color: white;
-      transition: 0.2s;
+      font-weight: bold;
+      cursor: pointer;
     }
 
-    .btn:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
+    button:hover {
+      background: #16a34a;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 12px;
+      margin-top: 12px;
     }
 
     th, td {
       padding: 12px;
-      text-align: left;
       border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
       font-size: 14px;
+      vertical-align: top;
     }
 
     th {
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.8);
+      color: #38bdf8;
+      font-weight: bold;
     }
 
-    .actions a {
-      margin-right: 8px;
+    .btn {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
       text-decoration: none;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px;
+      font-weight: bold;
+      margin-right: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-edit {
+      background: #38bdf8;
+      color: black;
+    }
+
+    .btn-toggle {
+      background: #facc15;
+      color: black;
+    }
+
+    .btn-delete {
+      background: #ef4444;
       color: white;
-      transition: 0.2s;
     }
 
-    .actions a:hover {
-      background: rgba(56,189,248,0.2);
-      border-color: rgba(56,189,248,0.4);
+    .small-text {
+      font-size: 12px;
+      opacity: 0.7;
+      line-height: 1.5;
     }
 
-    .inactive {
-      opacity: 0.4;
+    .status-active {
+      color: #22c55e;
+      font-weight: bold;
+    }
+
+    .status-off {
+      color: #ef4444;
+      font-weight: bold;
+    }
+
+    .layout-hint {
+      font-size: 13px;
+      opacity: 0.7;
+      line-height: 1.5;
+      margin-bottom: 12px;
     }
   </style>
 </head>
+
 <body>
 
   <div class="topbar">
-    <h2>🎁 Promo Management</h2>
+    <h2>🎁 Promo Manager</h2>
+
     <div class="nav">
       <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
       <a href="/admin/promos">Promos</a>
       <a href="/admin/banner_buttons">Banner Buttons</a>
-      <a href="/admin/users">Users</a>
       <a href="/admin/logout">Logout</a>
     </div>
   </div>
 
   <div class="container">
 
+    <!-- ADD PROMO -->
     <div class="card">
       <h3>➕ Add New Promo</h3>
+
       <form method="POST" action="/admin/promos/add">
-        <input type="text" name="title" placeholder="Promo Title" required>
-        <input type="text" name="image_url" placeholder="Promo Image URL" required>
-        <textarea name="caption" placeholder="Promo Caption" required></textarea>
-        <button class="btn" type="submit">Add Promo</button>
+        <label>Title</label>
+        <input type="text" name="title" required>
+
+        <label>Image URL</label>
+        <input type="text" name="image_url" required>
+
+        <label>Caption</label>
+        <textarea name="caption" required></textarea>
+
+        <button type="submit">Add Promo</button>
       </form>
     </div>
 
+    <!-- PROMO LIST -->
     <div class="card">
       <h3>📋 Promo List</h3>
 
       <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in promos %}
-          <tr class="{% if not p[4] %}inactive{% endif %}">
-            <td>{{ p[0] }}</td>
-            <td>{{ p[1] }}</td>
-            <td>
-              {% if p[4] %}
-                ✅ Active
-              {% else %}
-                ❌ Disabled
-              {% endif %}
-            </td>
-            <td class="actions">
-              <a href="/admin/promo/{{ p[0] }}">Edit</a>
-              <a href="/admin/promos/toggle/{{ p[0] }}">Toggle</a>
-              <a href="/admin/promos/delete/{{ p[0] }}" onclick="return confirm('Delete this promo?')">Delete</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
+        <tr>
+          <th style="width:60px;">ID</th>
+          <th>Title</th>
+          <th style="width:110px;">Status</th>
+          <th style="width:260px;">Actions</th>
+        </tr>
+
+        {% for p in promos %}
+        <tr>
+          <td>{{ p[0] }}</td>
+          <td>
+            <b>{{ p[1] }}</b><br>
+            <span class="small-text">{{ p[3][:120] }}{% if p[3]|length > 120 %}...{% endif %}</span>
+          </td>
+
+          <td>
+            {% if p[4] %}
+              <span class="status-active">✅ Active</span>
+            {% else %}
+              <span class="status-off">❌ Disabled</span>
+            {% endif %}
+          </td>
+
+          <td>
+            <a class="btn btn-edit" href="/admin/promo/{{ p[0] }}">✏️ Edit</a>
+            <a class="btn btn-toggle" href="/admin/promos/toggle/{{ p[0] }}">🔁 Toggle</a>
+            <a class="btn btn-delete"
+               href="/admin/promos/delete/{{ p[0] }}"
+               onclick="return confirm('Delete this promo?');">
+               🗑 Delete
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
       </table>
 
+    </div>
+
+    <!-- KEYBOARD LAYOUT SETTINGS -->
+    <div class="card">
+      <h3>⌨️ Keyboard Layout Settings</h3>
+
+      <div class="layout-hint">
+        <b>How to use:</b><br>
+        - Each line = 1 row of keyboard buttons<br>
+        - Multiple buttons in same row = separated by comma ( , )<br>
+        - Promo menu supports: <b>AUTO_PROMOS_2</b> or <b>AUTO_PROMOS_3</b><br><br>
+
+        <b>Example Base Menu:</b><br>
+        🚀 Register<br>
+        📋 MENU<br>
+        📞 Contact, 📌 About<br><br>
+
+        <b>Example Promo Menu:</b><br>
+        AUTO_PROMOS_2<br>
+        📞 Contact, 🚀 Register<br>
+        📌 About, ⬅️ Back Menu
+      </div>
+
+      <form method="POST" action="/admin/menu_layout">
+
+        <label>Base Menu Layout</label>
+        <textarea name="base_menu_layout" required>{{ base_layout }}</textarea>
+
+        <label>Promo Menu Layout</label>
+        <textarea name="promo_menu_layout" required>{{ promo_layout }}</textarea>
+
+        <button type="submit">💾 Save Layout</button>
+
+      </form>
     </div>
 
   </div>

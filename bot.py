@@ -63,6 +63,7 @@ def clear_webhook():
     except Exception as e:
         print("Webhook clear failed:", e)
 
+
 def upload_to_cloudinary(file):
     result = cloudinary.uploader.upload(
         file,
@@ -70,6 +71,7 @@ def upload_to_cloudinary(file):
         resource_type="image"
     )
     return result["secure_url"]
+
 
 # =========================
 # DB
@@ -99,7 +101,7 @@ def init_db():
         )
     """)
 
-    # users (TIMESTAMPTZ for correct timezone)
+    # users
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -162,7 +164,11 @@ def init_db():
 
         # manual correction
         "manual_today_add": "0",
-        "manual_month_add": "0"
+        "manual_month_add": "0",
+
+        # ✅ NEW MENU LAYOUT DEFAULTS
+        "base_menu_layout": "📋 MENU, 📌 About\n📞 Contact, 🚀 Register",
+        "promo_menu_layout": "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register"
     }
 
     for k, v in defaults.items():
@@ -281,6 +287,7 @@ def ensure_user(user_id: int, username: str):
     cur.close()
     conn.close()
 
+
 def get_users_paginated(search=None, page=1, per_page=50):
     offset = (page - 1) * per_page
 
@@ -338,6 +345,7 @@ def get_total_users():
     cur.close()
     conn.close()
     return total
+
 
 def get_today_count():
     conn = get_db_connection()
@@ -453,38 +461,76 @@ def get_banner_buttons():
 
 
 # =========================
-# KEYBOARDS
+# KEYBOARD PARSER (NEW)
+# =========================
+def parse_layout_to_keyboard(layout_text: str):
+    rows = []
+    for line in layout_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        parts = [p.strip() for p in line.split(",") if p.strip()]
+        if parts:
+            rows.append(parts)
+
+    return rows
+
+
+# =========================
+# KEYBOARDS (UPDATED)
 # =========================
 def base_keyboard():
-    return ReplyKeyboardMarkup(
-        [
-            ["📋 MENU", "📌 About"],
-            ["📞 Contact", "🚀 Register"]
-        ],
-        resize_keyboard=True
-    )
+    layout = get_setting("base_menu_layout").strip()
+    if not layout:
+        layout = "📋 MENU, 📌 About\n📞 Contact, 🚀 Register"
+
+    rows = parse_layout_to_keyboard(layout)
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
 def expanded_keyboard():
+    layout = get_setting("promo_menu_layout").strip()
+    if not layout:
+        layout = "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register"
+
     promos = get_promos(active_only=True)
+    final_rows = []
 
-    promo_rows = []
-    row = []
+    for line in layout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
 
-    for promo in promos:
-        row.append(promo[1])
-        if len(row) == 2:
-            promo_rows.append(row)
+        # AUTO PROMOS
+        if line == "AUTO_PROMOS_2":
             row = []
+            for p in promos:
+                row.append(p[1])
+                if len(row) == 2:
+                    final_rows.append(row)
+                    row = []
+            if row:
+                final_rows.append(row)
+            continue
 
-    if row:
-        promo_rows.append(row)
+        if line == "AUTO_PROMOS_3":
+            row = []
+            for p in promos:
+                row.append(p[1])
+                if len(row) == 3:
+                    final_rows.append(row)
+                    row = []
+            if row:
+                final_rows.append(row)
+            continue
 
-    promo_rows.append(["📌 About"])
-    promo_rows.append(["⬅️ Back Menu"])
-    promo_rows.append(["📞 Contact", "🚀 Register"])
+        # normal row
+        parts = [p.strip() for p in line.split(",") if p.strip()]
+        if parts:
+            final_rows.append(parts)
 
-    return ReplyKeyboardMarkup(promo_rows, resize_keyboard=True)
+    return ReplyKeyboardMarkup(final_rows, resize_keyboard=True)
 
 
 # =========================
@@ -678,7 +724,6 @@ def admin_dashboard():
         return redirect("/admin/login")
 
     if request.method == "POST":
-
         main_banner = request.form.get("main_banner")
         if main_banner:
             set_setting("main_banner", main_banner)
@@ -709,6 +754,26 @@ def admin_dashboard():
 
 
 # =========================
+# MENU LAYOUT SAVE
+# =========================
+@flask_app.route("/admin/menu_layout", methods=["POST"])
+def admin_save_menu_layout():
+    if not require_login():
+        return redirect("/admin/login")
+
+    base_layout = request.form.get("base_menu_layout", "").strip()
+    promo_layout = request.form.get("promo_menu_layout", "").strip()
+
+    if base_layout:
+        set_setting("base_menu_layout", base_layout)
+
+    if promo_layout:
+        set_setting("promo_menu_layout", promo_layout)
+
+    return redirect("/admin/promos")
+
+
+# =========================
 # PROMOS LIST
 # =========================
 @flask_app.route("/admin/promos")
@@ -717,7 +782,16 @@ def admin_promos():
         return redirect("/admin/login")
 
     promos = get_promos(active_only=False)
-    return render_template("promos.html", promos=promos)
+
+    base_layout = get_setting("base_menu_layout")
+    promo_layout = get_setting("promo_menu_layout")
+
+    return render_template(
+        "promos.html",
+        promos=promos,
+        base_layout=base_layout,
+        promo_layout=promo_layout
+    )
 
 
 @flask_app.route("/admin/promos/add", methods=["POST"])
@@ -774,6 +848,10 @@ def admin_toggle_promo(promo_id):
 
     return redirect("/admin/promos")
 
+
+# =========================
+# USERS PAGE
+# =========================
 @flask_app.route("/admin/users")
 def admin_users():
     if not require_login():
@@ -804,6 +882,7 @@ def admin_users():
         total_pages=total_pages,
         total_filtered=total_filtered
     )
+
 
 # =========================
 # PROMO EDIT + BUTTONS
@@ -934,6 +1013,10 @@ def admin_delete_banner_button(button_id):
 
     return redirect("/admin/banner_buttons")
 
+
+# =========================
+# UPLOAD BANNER (Cloudinary)
+# =========================
 @flask_app.route("/admin/upload_banner", methods=["POST"])
 def upload_banner():
     if not require_login():
@@ -945,10 +1028,7 @@ def upload_banner():
         if not file:
             return "No file uploaded", 400
 
-        # 上传到 Cloudinary
         url = upload_to_cloudinary(file)
-
-        # ❌ 不再更新 main_banner
 
         return render_template("dashboard.html",
             data={
@@ -967,6 +1047,7 @@ def upload_banner():
     except Exception as e:
         print("UPLOAD ERROR:", e)
         return f"Internal Error: {str(e)}", 500
+
 
 # =========================
 # START SYSTEM

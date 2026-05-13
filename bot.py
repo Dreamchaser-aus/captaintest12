@@ -4,6 +4,7 @@ import asyncio
 import psycopg2
 import cloudinary
 import cloudinary.uploader
+import re
 
 from urllib.request import urlopen
 
@@ -24,6 +25,9 @@ from telegram.ext import (
     filters
 )
 
+# =========================
+# CLOUDINARY CONFIG
+# =========================
 cloudinary.config(
     cloud_name=os.getenv("CLOUD_NAME"),
     api_key=os.getenv("CLOUD_API_KEY"),
@@ -46,6 +50,16 @@ SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
 # =========================
 flask_app = Flask(__name__)
 flask_app.secret_key = SECRET_KEY
+
+
+# =========================
+# TEXT FORMATTER (NEW)
+# =========================
+def convert_markdown_bold_to_html(text: str):
+    """
+    Convert **bold** to <b>bold</b> for Telegram HTML parse_mode.
+    """
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
 
 
 # =========================
@@ -150,14 +164,14 @@ def init_db():
     defaults = {
         "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
         "welcome_text": (
-            "👋 Welcome {username}\n"
-            "🆔 Your ID: {user_id}\n\n"
-            "🔥 Promotion Center\n\n"
+            "👋 **Welcome** {username}\n"
+            "🆔 Your ID: **{user_id}**\n\n"
+            "🔥 **Promotion Center**\n\n"
             "📊 Stats (Malaysia Time)\n"
-            "📅 Today: {today_count}\n"
-            "🗓 This Month: {month_count}"
+            "📅 Today: **{today_count}**\n"
+            "🗓 This Month: **{month_count}**"
         ),
-        "about_text": "📌 About Us\n\nFast Withdraw | 24/7 Support",
+        "about_text": "📌 **About Us**\n\nFast Withdraw | 24/7 Support",
         "register_url": "https://yourwebsite.com",
         "telegram_support": "https://t.me/your_support",
         "whatsapp_url": "https://wa.me/60139661818",
@@ -166,7 +180,7 @@ def init_db():
         "manual_today_add": "0",
         "manual_month_add": "0",
 
-        # ✅ NEW MENU LAYOUT DEFAULTS
+        # menu layout defaults
         "base_menu_layout": "📋 MENU, 📌 About\n📞 Contact, 🚀 Register",
         "promo_menu_layout": "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register"
     }
@@ -190,13 +204,13 @@ def init_db():
             RETURNING id
         """, (
             "🔥 Promo 1", "https://i.imgur.com/5qHnQ0R.jpeg",
-            "🔥 WELCOME BONUS\n\nDeposit RM50 → Free RM10\nFast Withdraw ⚡",
+            "🔥 **WELCOME BONUS**\n\nDeposit RM50 → Free RM10\nFast Withdraw ⚡",
 
             "🎁 Promo 2", "https://i.imgur.com/8zQnF4T.jpeg",
-            "🎁 VIP CASHBACK\n\nWeekly cashback up to 15%\nNo turnover required",
+            "🎁 **VIP CASHBACK**\n\nWeekly cashback up to 15%\nNo turnover required",
 
             "💎 Promo 3", "https://i.imgur.com/2gRkPjH.jpeg",
-            "💎 DAILY BONUS\n\nDaily reward system\nFast payout ⚡"
+            "💎 **DAILY BONUS**\n\nDaily reward system\nFast payout ⚡"
         ))
         ids = cur.fetchall()
 
@@ -461,7 +475,7 @@ def get_banner_buttons():
 
 
 # =========================
-# KEYBOARD PARSER (NEW)
+# KEYBOARD PARSER
 # =========================
 def parse_layout_to_keyboard(layout_text: str):
     rows = []
@@ -478,7 +492,7 @@ def parse_layout_to_keyboard(layout_text: str):
 
 
 # =========================
-# KEYBOARDS (UPDATED)
+# KEYBOARDS
 # =========================
 def base_keyboard():
     layout = get_setting("base_menu_layout").strip()
@@ -502,7 +516,6 @@ def expanded_keyboard():
         if not line:
             continue
 
-        # AUTO PROMOS
         if line == "AUTO_PROMOS_2":
             row = []
             for p in promos:
@@ -525,7 +538,6 @@ def expanded_keyboard():
                 final_rows.append(row)
             continue
 
-        # normal row
         parts = [p.strip() for p in line.split(",") if p.strip()]
         if parts:
             final_rows.append(parts)
@@ -563,6 +575,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         .replace("{month_count}", str(month_count))
     )
 
+    # ✅ convert **bold** to <b>bold</b>
+    text = convert_markdown_bold_to_html(text)
+
     btns = get_banner_buttons()
 
     keyboard = []
@@ -582,12 +597,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_photo(
         photo=banner_url,
         caption=text,
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
 async def send_promo(update: Update, promo_id: int, image_url: str, caption: str):
     promo_btns = get_promo_buttons(promo_id)
+
+    # ✅ promo caption bold support
+    caption = convert_markdown_bold_to_html(caption)
 
     keyboard = []
     for btn in promo_btns:
@@ -599,6 +618,7 @@ async def send_promo(update: Update, promo_id: int, image_url: str, caption: str
     await update.message.reply_photo(
         photo=image_url,
         caption=caption,
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -615,7 +635,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if msg == "📌 About":
-        await update.message.reply_text(get_setting("about_text"))
+        about_text = get_setting("about_text")
+        about_text = convert_markdown_bold_to_html(about_text)
+
+        await update.message.reply_text(about_text, parse_mode="HTML")
         return
 
     if msg == "📞 Contact":
@@ -1015,7 +1038,7 @@ def admin_delete_banner_button(button_id):
 
 
 # =========================
-# UPLOAD BANNER (Cloudinary)
+# UPLOAD BANNER
 # =========================
 @flask_app.route("/admin/upload_banner", methods=["POST"])
 def upload_banner():

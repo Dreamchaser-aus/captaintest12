@@ -5,7 +5,7 @@ import psycopg2
 import cloudinary
 import cloudinary.uploader
 import re
-import random
+import secrets
 import string
 
 from urllib.request import urlopen
@@ -42,8 +42,6 @@ cloudinary.config(
 # =========================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-BOT_USERNAME = os.getenv("BOT_USERNAME", "").replace("@", "")  # for referral link
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
@@ -82,6 +80,9 @@ def clear_webhook():
         print("Webhook clear failed:", e)
 
 
+# =========================
+# CLOUDINARY UPLOAD
+# =========================
 def upload_to_cloudinary(file):
     result = cloudinary.uploader.upload(
         file,
@@ -111,42 +112,21 @@ def get_db_connection():
 # REFERRAL HELPERS
 # =========================
 def generate_referral_code(length=8):
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-
-
-def create_unique_referral_code():
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    while True:
-        code = generate_referral_code()
-        cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (code,))
-        exists = cur.fetchone()
-        if not exists:
-            cur.close()
-            conn.close()
-            return code
-
-
-def get_user_by_referral_code(code: str):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (code,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    return row[0] if row else None
+    chars = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 def get_user_referral_info(user_id: int):
     conn = get_db_connection()
     cur = conn.cursor()
+
     cur.execute("""
         SELECT referral_code, referral_count
         FROM users
         WHERE telegram_id=%s
     """, (user_id,))
     row = cur.fetchone()
+
     cur.close()
     conn.close()
 
@@ -155,40 +135,77 @@ def get_user_referral_info(user_id: int):
     return None, 0
 
 
-def set_referred_by(new_user_id: int, referrer_id: int):
+def ensure_referral_code(user_id: int):
     """
-    Bind referral relationship only if referred_by is NULL.
+    Ensure this user has referral_code generated.
     """
-    if new_user_id == referrer_id:
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT referral_code FROM users WHERE telegram_id=%s", (user_id,))
+    row = cur.fetchone()
+
+    if row and row[0]:
+        cur.close()
+        conn.close()
+        return row[0]
+
+    # generate unique code
+    while True:
+        code = generate_referral_code()
+        cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (code,))
+        exists = cur.fetchone()
+        if not exists:
+            break
+
+    cur.execute("UPDATE users SET referral_code=%s WHERE telegram_id=%s", (code, user_id))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+    return code
+
+
+def bind_referral(new_user_id: int, ref_code: str):
+    """
+    Bind referred_by if not already set.
+    Increase referral_count for referrer.
+    """
+    if not ref_code:
         return False
 
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # get referrer by code
+    cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (ref_code,))
+    ref_row = cur.fetchone()
+
+    if not ref_row:
+        cur.close()
+        conn.close()
+        return False
+
+    referrer_id = ref_row[0]
+
+    # cannot refer self
+    if referrer_id == new_user_id:
+        cur.close()
+        conn.close()
+        return False
+
+    # check if already bound
     cur.execute("SELECT referred_by FROM users WHERE telegram_id=%s", (new_user_id,))
-    row = cur.fetchone()
+    existing = cur.fetchone()
 
-    if not row:
+    if existing and existing[0]:
         cur.close()
         conn.close()
         return False
 
-    if row[0] is not None:
-        cur.close()
-        conn.close()
-        return False
-
-    cur.execute("""
-        UPDATE users
-        SET referred_by=%s
-        WHERE telegram_id=%s
-    """, (referrer_id, new_user_id))
-
-    cur.execute("""
-        UPDATE users
-        SET referral_count = referral_count + 1
-        WHERE telegram_id=%s
-    """, (referrer_id,))
+    # bind
+    cur.execute("UPDATE users SET referred_by=%s WHERE telegram_id=%s", (referrer_id, new_user_id))
+    cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE telegram_id=%s", (referrer_id,))
 
     conn.commit()
     cur.close()
@@ -211,16 +228,13 @@ def init_db():
         )
     """)
 
-    # users (add referral fields)
+    # users
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             telegram_id BIGINT UNIQUE,
             username TEXT,
-            first_seen TIMESTAMPTZ DEFAULT NOW(),
-            referral_code TEXT UNIQUE,
-            referred_by BIGINT,
-            referral_count INT DEFAULT 0
+            first_seen TIMESTAMPTZ DEFAULT NOW()
         )
     """)
 
@@ -259,6 +273,21 @@ def init_db():
 
     conn.commit()
 
+    # =========================
+    # AUTO UPGRADE USERS TABLE
+    # =========================
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT;")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count INT DEFAULT 0;")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT;")
+    conn.commit()
+
+    # make referral_code unique (safe attempt)
+    try:
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(referral_code);")
+        conn.commit()
+    except:
+        pass
+
     # defaults
     defaults = {
         "main_banner": "https://i.imgur.com/4M7IWwP.jpeg",
@@ -275,11 +304,23 @@ def init_db():
         "telegram_support": "https://t.me/your_support",
         "whatsapp_url": "https://wa.me/60139661818",
 
+        # manual correction
         "manual_today_add": "0",
         "manual_month_add": "0",
 
+        # menu layout defaults
         "base_menu_layout": "📋 MENU, 📌 About\n📞 Contact, 🚀 Register",
-        "promo_menu_layout": "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register"
+        "promo_menu_layout": "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register",
+
+        # referral settings
+        "referral_enabled": "1",
+        "referral_text": (
+            "🎁 **Referral Program**\n\n"
+            "Your referral code: **{ref_code}**\n"
+            "Your referral link:\n"
+            "{ref_link}\n\n"
+            "👥 Total invited: **{ref_count}**"
+        )
     }
 
     for k, v in defaults.items():
@@ -385,29 +426,16 @@ def ensure_user(user_id: int, username: str):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT telegram_id, referral_code FROM users WHERE telegram_id=%s", (user_id,))
+    cur.execute("SELECT telegram_id FROM users WHERE telegram_id=%s", (user_id,))
     row = cur.fetchone()
 
     if not row:
-        ref_code = create_unique_referral_code()
         cur.execute("""
-            INSERT INTO users (telegram_id, username, referral_code)
-            VALUES (%s, %s, %s)
-        """, (user_id, username, ref_code))
+            INSERT INTO users (telegram_id, username)
+            VALUES (%s, %s)
+        """, (user_id, username))
     else:
-        # update username if changed
-        cur.execute("""
-            UPDATE users SET username=%s
-            WHERE telegram_id=%s
-        """, (username, user_id))
-
-        # if referral_code missing (old users)
-        if row[1] is None:
-            ref_code = create_unique_referral_code()
-            cur.execute("""
-                UPDATE users SET referral_code=%s
-                WHERE telegram_id=%s
-            """, (ref_code, user_id))
+        cur.execute("UPDATE users SET username=%s WHERE telegram_id=%s", (username, user_id))
 
     conn.commit()
     cur.close()
@@ -432,9 +460,7 @@ def get_users_paginated(search=None, page=1, per_page=50):
         cur.execute("""
             SELECT telegram_id,
                    username,
-                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt,
-                   referral_code,
-                   referral_count
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
             FROM users
             WHERE CAST(telegram_id AS TEXT) ILIKE %s
                OR username ILIKE %s
@@ -450,9 +476,7 @@ def get_users_paginated(search=None, page=1, per_page=50):
         cur.execute("""
             SELECT telegram_id,
                    username,
-                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt,
-                   referral_code,
-                   referral_count
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
             FROM users
             ORDER BY first_seen DESC
             LIMIT %s OFFSET %s
@@ -463,6 +487,7 @@ def get_users_paginated(search=None, page=1, per_page=50):
     conn.close()
 
     total_pages = (total + per_page - 1) // per_page
+
     return rows, total, total_pages
 
 
@@ -670,12 +695,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ensure_user(user_id, username)
 
-    # referral binding
+    # ensure referral_code exists
+    ensure_referral_code(user_id)
+
+    # referral bind if start has parameter
     if context.args:
-        referral_code = context.args[0].strip()
-        referrer_id = get_user_by_referral_code(referral_code)
-        if referrer_id:
-            set_referred_by(user_id, referrer_id)
+        ref_code = context.args[0].strip().upper()
+        if get_setting("referral_enabled") == "1":
+            bind_referral(user_id, ref_code)
 
     real_today = get_today_count()
     real_month = get_month_count()
@@ -725,7 +752,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_promo(update: Update, promo_id: int, image_url: str, caption: str):
     promo_btns = get_promo_buttons(promo_id)
-
     caption = convert_markdown_bold_to_html(caption)
 
     keyboard = []
@@ -741,6 +767,31 @@ async def send_promo(update: Update, promo_id: int, image_url: str, caption: str
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+
+async def send_referral_info(update: Update):
+    user_id = update.effective_user.id
+    ensure_referral_code(user_id)
+
+    code, count = get_user_referral_info(user_id)
+
+    bot_username = os.getenv("BOT_USERNAME", "").strip()
+    if not bot_username:
+        bot_username = "YourBotUsername"
+
+    ref_link = f"https://t.me/{bot_username}?start={code}"
+
+    ref_text = get_setting("referral_text")
+    ref_text = (
+        ref_text
+        .replace("{ref_code}", code)
+        .replace("{ref_link}", ref_link)
+        .replace("{ref_count}", str(count))
+    )
+
+    ref_text = convert_markdown_bold_to_html(ref_text)
+
+    await update.message.reply_text(ref_text, parse_mode="HTML")
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -775,24 +826,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg == "🚀 Register":
         register_url = get_setting("register_url")
         keyboard = [[InlineKeyboardButton("🌍 Register", url=register_url)]]
+
         await update.message.reply_text("🚀 Register Now", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    if msg == "🎁 Referral":
-        code, count = get_user_referral_info(update.effective_user.id)
-
-        if not BOT_USERNAME:
-            await update.message.reply_text("Referral system enabled, but BOT_USERNAME is not set.")
-            return
-
-        link = f"https://t.me/{BOT_USERNAME}?start={code}"
-
-        await update.message.reply_text(
-            f"🎁 <b>Your Referral Link</b>\n\n"
-            f"🔗 {link}\n\n"
-            f"👥 Total Referrals: <b>{count}</b>",
-            parse_mode="HTML"
-        )
+    # referral keyword
+    if msg.lower() in ["referral", "invite", "邀请", "推荐"]:
+        if get_setting("referral_enabled") == "1":
+            await send_referral_info(update)
+        else:
+            await update.message.reply_text("Referral system is disabled.")
         return
 
     promo = get_promo_by_title(msg)
@@ -895,6 +938,10 @@ def admin_dashboard():
         set_setting("manual_today_add", request.form.get("manual_today_add", "0"))
         set_setting("manual_month_add", request.form.get("manual_month_add", "0"))
 
+        # referral admin settings
+        set_setting("referral_enabled", request.form.get("referral_enabled", "0"))
+        set_setting("referral_text", request.form.get("referral_text", ""))
+
         return redirect("/admin")
 
     data = {
@@ -905,7 +952,10 @@ def admin_dashboard():
         "telegram_support": get_setting("telegram_support"),
         "whatsapp_url": get_setting("whatsapp_url"),
         "manual_today_add": get_setting("manual_today_add"),
-        "manual_month_add": get_setting("manual_month_add")
+        "manual_month_add": get_setting("manual_month_add"),
+
+        "referral_enabled": get_setting("referral_enabled"),
+        "referral_text": get_setting("referral_text")
     }
 
     return render_template("dashboard.html", data=data)
@@ -1197,7 +1247,9 @@ def upload_banner():
                 "telegram_support": get_setting("telegram_support"),
                 "whatsapp_url": get_setting("whatsapp_url"),
                 "manual_today_add": get_setting("manual_today_add"),
-                "manual_month_add": get_setting("manual_month_add")
+                "manual_month_add": get_setting("manual_month_add"),
+                "referral_enabled": get_setting("referral_enabled"),
+                "referral_text": get_setting("referral_text")
             },
             uploaded_url=url
         )
@@ -1213,11 +1265,21 @@ def upload_banner():
 init_db()
 clear_webhook()
 
-# 防重复启动（重要）
+BOT_STARTED = False
+
+def start_bot_once():
+    global BOT_STARTED
+    if BOT_STARTED:
+        return
+    BOT_STARTED = True
+
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+
+
 if os.getenv("BOT_DISABLE") != "1":
-    if os.getenv("RUN_MAIN") != "true":
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
+    start_bot_once()
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

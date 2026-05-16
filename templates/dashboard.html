@@ -118,6 +118,7 @@
       border-top: 1px solid rgba(255,255,255,0.08);
       margin: 20px 0;
     }
+
   </style>
 </head>
 
@@ -141,7 +142,6 @@
     <div class="card">
       <h3>⚙️ Settings</h3>
 
-      <!-- ❗ IMPORTANT: POST to /admin -->
       <form method="POST" action="/admin">
 
         <label>Main Banner URL</label>
@@ -173,25 +173,23 @@
         <!-- ================= REFERRAL SETTINGS ================= -->
         <h3>🎁 Referral Settings</h3>
 
-        <label>Referral System Enable / Disable</label>
+        <label>Referral System</label>
         <select name="referral_enabled">
           <option value="1" {% if data.referral_enabled == "1" %}selected{% endif %}>Enabled</option>
           <option value="0" {% if data.referral_enabled == "0" %}selected{% endif %}>Disabled</option>
         </select>
 
+        <label>Referral Image URL</label>
+        <input type="text" name="referral_image" value="{{ data.referral_image }}">
+
         <label>Referral Message Template</label>
         <textarea name="referral_text" rows="8">{{ data.referral_text }}</textarea>
 
         <div class="hint">
-          Available variables:<br>
-          <b>{ref_code}</b> = user referral code<br>
-          <b>{ref_link}</b> = referral link<br>
-          <b>{ref_count}</b> = total invited count<br><br>
-          Example:<br>
-          🎁 **Referral Program**<br>
-          Your Code: **{ref_code}**<br>
-          Link: {ref_link}<br>
-          Total invited: **{ref_count}**
+          Variables:<br>
+          {ref_code} = referral code<br>
+          {ref_link} = referral link<br>
+          {ref_count} = invited users
         </div>
 
         <button type="submit">💾 Save Settings</button>
@@ -203,7 +201,6 @@
     <div class="card">
       <h3>📤 Upload Banner (Cloudinary)</h3>
 
-      <!-- ❗ IMPORTANT: POST to upload route -->
       <form method="POST" action="/admin/upload_banner" enctype="multipart/form-data">
 
         <div class="upload-box">
@@ -214,7 +211,6 @@
 
       </form>
 
-      <!-- ================= SUCCESS RESULT ================= -->
       {% if uploaded_url %}
       <div class="success">
 

@@ -57,7 +57,7 @@
       margin-bottom: 10px;
     }
 
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       margin-top: 6px;
       margin-bottom: 12px;
@@ -67,11 +67,13 @@
       background: rgba(0,0,0,0.25);
       color: white;
       box-sizing: border-box;
+      outline: none;
     }
 
     textarea {
       min-height: 120px;
       resize: vertical;
+      white-space: pre-wrap;
     }
 
     button {
@@ -103,6 +105,19 @@
       background: rgba(56,189,248,0.1);
     }
 
+    .hint {
+      font-size: 12px;
+      opacity: 0.7;
+      line-height: 1.6;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin: 20px 0;
+    }
   </style>
 </head>
 
@@ -152,6 +167,32 @@
 
         <label>Manual Month Add</label>
         <input type="number" name="manual_month_add" value="{{ data.manual_month_add }}">
+
+        <hr>
+
+        <!-- ================= REFERRAL SETTINGS ================= -->
+        <h3>🎁 Referral Settings</h3>
+
+        <label>Referral System Enable / Disable</label>
+        <select name="referral_enabled">
+          <option value="1" {% if data.referral_enabled == "1" %}selected{% endif %}>Enabled</option>
+          <option value="0" {% if data.referral_enabled == "0" %}selected{% endif %}>Disabled</option>
+        </select>
+
+        <label>Referral Message Template</label>
+        <textarea name="referral_text" rows="8">{{ data.referral_text }}</textarea>
+
+        <div class="hint">
+          Available variables:<br>
+          <b>{ref_code}</b> = user referral code<br>
+          <b>{ref_link}</b> = referral link<br>
+          <b>{ref_count}</b> = total invited count<br><br>
+          Example:<br>
+          🎁 **Referral Program**<br>
+          Your Code: **{ref_code}**<br>
+          Link: {ref_link}<br>
+          Total invited: **{ref_count}**
+        </div>
 
         <button type="submit">💾 Save Settings</button>
 

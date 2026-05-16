@@ -314,6 +314,7 @@ def init_db():
 
         # referral settings
         "referral_enabled": "1",
+        "referral_image": "https://i.imgur.com/4M7IWwP.jpeg",
         "referral_text": (
             "🎁 **Referral Program**\n\n"
             "Your referral code: **{ref_code}**\n"
@@ -391,10 +392,16 @@ def init_db():
 def get_setting(key):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT value FROM settings WHERE key=%s", (key,))
+
+    cur.execute("""
+        SELECT value FROM settings WHERE key=%s
+    """, (key,))
+
     row = cur.fetchone()
+
     cur.close()
     conn.close()
+
     return row[0] if row else ""
 
 
@@ -788,6 +795,7 @@ async def send_referral_info(update: Update):
     ref_link = f"https://t.me/{bot_username}?start={code}"
 
     ref_text = get_setting("referral_text")
+
     ref_text = (
         ref_text
         .replace("{ref_code}", code)
@@ -797,7 +805,19 @@ async def send_referral_info(update: Update):
 
     ref_text = convert_markdown_bold_to_html(ref_text)
 
-    await update.message.reply_text(ref_text, parse_mode="HTML")
+    # =========================
+    # NEW: referral image
+    # =========================
+    referral_image = get_setting("referral_image")
+
+    if not referral_image:
+        referral_image = "https://i.imgur.com/4M7IWwP.jpeg"  # fallback image
+
+    await update.message.reply_photo(
+        photo=referral_image,
+        caption=ref_text,
+        parse_mode="HTML"
+    )
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -946,6 +966,7 @@ def admin_dashboard():
 
         # referral admin settings
         set_setting("referral_enabled", request.form.get("referral_enabled", "0"))
+        set_setting("referral_image", request.form.get("referral_image", ""))
         set_setting("referral_text", request.form.get("referral_text", ""))
 
         return redirect("/admin")

@@ -823,6 +823,7 @@ async def send_referral_info(update: Update):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
 
+    # ================= MENU =================
     if msg == "📋 MENU":
         await update.message.reply_text("🔥 Menu Opened", reply_markup=expanded_keyboard())
         return
@@ -846,34 +847,47 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💬 WhatsApp", url=whatsapp_url)]
         ]
 
-        await update.message.reply_text("📞 Contact Us", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            "📞 Contact Us",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
 
     if msg == "🚀 Register":
         register_url = get_setting("register_url")
         keyboard = [[InlineKeyboardButton("🌍 Register", url=register_url)]]
 
-        await update.message.reply_text("🚀 Register Now", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            "🚀 Register Now",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
 
-    # referral keyword
-    if "referral" in msg.lower() or "邀请" in msg or "推荐" in msg or "invite" in msg.lower():
+    # ================= REFERRAL =================
+    if (
+        "referral" in msg.lower()
+        or "invite" in msg.lower()
+        or "邀请" in msg
+        or "推荐" in msg
+    ):
         if get_setting("referral_enabled") == "1":
             await send_referral_info(update)
         else:
             await update.message.reply_text("Referral system is disabled.")
         return
 
+    # ================= PROMO =================
     promo = get_promo_by_title(msg)
     if promo:
         promo_id, title, image_url, caption = promo
         await send_promo(update, promo_id, image_url, caption)
-        
-        await update.message.reply_text(
-            "⚠️ Sorry, I didn’t understand your message.\n\n"
-            "👉 Please press /start to restart the system and continue."
-        )
         return
+
+    # ================= ❌ INVALID FALLBACK =================
+    await update.message.reply_text(
+        "⚠️ Invalid input detected.\n\n"
+        "👉 Please press /start to continue."
+    )
         
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

@@ -5,6 +5,8 @@ import psycopg2
 import cloudinary
 import cloudinary.uploader
 import re
+import random
+import string
 
 from urllib.request import urlopen
 
@@ -41,6 +43,8 @@ cloudinary.config(
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+BOT_USERNAME = os.getenv("BOT_USERNAME", "").replace("@", "")  # for referral link
+
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin123")
 SECRET_KEY = os.getenv("SECRET_KEY", "secret123")
@@ -53,7 +57,7 @@ flask_app.secret_key = SECRET_KEY
 
 
 # =========================
-# TEXT FORMATTER (NEW)
+# TEXT FORMATTER
 # =========================
 def convert_markdown_bold_to_html(text: str):
     """
@@ -103,6 +107,98 @@ def get_db_connection():
     return conn
 
 
+# =========================
+# REFERRAL HELPERS
+# =========================
+def generate_referral_code(length=8):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
+
+def create_unique_referral_code():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    while True:
+        code = generate_referral_code()
+        cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (code,))
+        exists = cur.fetchone()
+        if not exists:
+            cur.close()
+            conn.close()
+            return code
+
+
+def get_user_by_referral_code(code: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT telegram_id FROM users WHERE referral_code=%s", (code,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row[0] if row else None
+
+
+def get_user_referral_info(user_id: int):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT referral_code, referral_count
+        FROM users
+        WHERE telegram_id=%s
+    """, (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row:
+        return row[0], row[1]
+    return None, 0
+
+
+def set_referred_by(new_user_id: int, referrer_id: int):
+    """
+    Bind referral relationship only if referred_by is NULL.
+    """
+    if new_user_id == referrer_id:
+        return False
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT referred_by FROM users WHERE telegram_id=%s", (new_user_id,))
+    row = cur.fetchone()
+
+    if not row:
+        cur.close()
+        conn.close()
+        return False
+
+    if row[0] is not None:
+        cur.close()
+        conn.close()
+        return False
+
+    cur.execute("""
+        UPDATE users
+        SET referred_by=%s
+        WHERE telegram_id=%s
+    """, (referrer_id, new_user_id))
+
+    cur.execute("""
+        UPDATE users
+        SET referral_count = referral_count + 1
+        WHERE telegram_id=%s
+    """, (referrer_id,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return True
+
+
+# =========================
+# INIT DB
+# =========================
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -115,13 +211,16 @@ def init_db():
         )
     """)
 
-    # users
+    # users (add referral fields)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             telegram_id BIGINT UNIQUE,
             username TEXT,
-            first_seen TIMESTAMPTZ DEFAULT NOW()
+            first_seen TIMESTAMPTZ DEFAULT NOW(),
+            referral_code TEXT UNIQUE,
+            referred_by BIGINT,
+            referral_count INT DEFAULT 0
         )
     """)
 
@@ -176,11 +275,9 @@ def init_db():
         "telegram_support": "https://t.me/your_support",
         "whatsapp_url": "https://wa.me/60139661818",
 
-        # manual correction
         "manual_today_add": "0",
         "manual_month_add": "0",
 
-        # menu layout defaults
         "base_menu_layout": "📋 MENU, 📌 About\n📞 Contact, 🚀 Register",
         "promo_menu_layout": "AUTO_PROMOS_2\n📌 About\n⬅️ Back Menu\n📞 Contact, 🚀 Register"
     }
@@ -288,14 +385,29 @@ def ensure_user(user_id: int, username: str):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT telegram_id FROM users WHERE telegram_id=%s", (user_id,))
+    cur.execute("SELECT telegram_id, referral_code FROM users WHERE telegram_id=%s", (user_id,))
     row = cur.fetchone()
 
     if not row:
+        ref_code = create_unique_referral_code()
         cur.execute("""
-            INSERT INTO users (telegram_id, username)
-            VALUES (%s, %s)
-        """, (user_id, username))
+            INSERT INTO users (telegram_id, username, referral_code)
+            VALUES (%s, %s, %s)
+        """, (user_id, username, ref_code))
+    else:
+        # update username if changed
+        cur.execute("""
+            UPDATE users SET username=%s
+            WHERE telegram_id=%s
+        """, (username, user_id))
+
+        # if referral_code missing (old users)
+        if row[1] is None:
+            ref_code = create_unique_referral_code()
+            cur.execute("""
+                UPDATE users SET referral_code=%s
+                WHERE telegram_id=%s
+            """, (ref_code, user_id))
 
     conn.commit()
     cur.close()
@@ -320,7 +432,9 @@ def get_users_paginated(search=None, page=1, per_page=50):
         cur.execute("""
             SELECT telegram_id,
                    username,
-                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt,
+                   referral_code,
+                   referral_count
             FROM users
             WHERE CAST(telegram_id AS TEXT) ILIKE %s
                OR username ILIKE %s
@@ -336,7 +450,9 @@ def get_users_paginated(search=None, page=1, per_page=50):
         cur.execute("""
             SELECT telegram_id,
                    username,
-                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt
+                   TO_CHAR(first_seen, 'DD Mon YYYY, HH12:MI AM') AS first_seen_fmt,
+                   referral_code,
+                   referral_count
             FROM users
             ORDER BY first_seen DESC
             LIMIT %s OFFSET %s
@@ -347,7 +463,6 @@ def get_users_paginated(search=None, page=1, per_page=50):
     conn.close()
 
     total_pages = (total + per_page - 1) // per_page
-
     return rows, total, total_pages
 
 
@@ -555,6 +670,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ensure_user(user_id, username)
 
+    # referral binding
+    if context.args:
+        referral_code = context.args[0].strip()
+        referrer_id = get_user_by_referral_code(referral_code)
+        if referrer_id:
+            set_referred_by(user_id, referrer_id)
+
     real_today = get_today_count()
     real_month = get_month_count()
 
@@ -575,7 +697,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         .replace("{month_count}", str(month_count))
     )
 
-    # ✅ convert **bold** to <b>bold</b>
     text = convert_markdown_bold_to_html(text)
 
     btns = get_banner_buttons()
@@ -605,7 +726,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_promo(update: Update, promo_id: int, image_url: str, caption: str):
     promo_btns = get_promo_buttons(promo_id)
 
-    # ✅ promo caption bold support
     caption = convert_markdown_bold_to_html(caption)
 
     keyboard = []
@@ -637,7 +757,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg == "📌 About":
         about_text = get_setting("about_text")
         about_text = convert_markdown_bold_to_html(about_text)
-
         await update.message.reply_text(about_text, parse_mode="HTML")
         return
 
@@ -656,8 +775,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg == "🚀 Register":
         register_url = get_setting("register_url")
         keyboard = [[InlineKeyboardButton("🌍 Register", url=register_url)]]
-
         await update.message.reply_text("🚀 Register Now", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    if msg == "🎁 Referral":
+        code, count = get_user_referral_info(update.effective_user.id)
+
+        if not BOT_USERNAME:
+            await update.message.reply_text("Referral system enabled, but BOT_USERNAME is not set.")
+            return
+
+        link = f"https://t.me/{BOT_USERNAME}?start={code}"
+
+        await update.message.reply_text(
+            f"🎁 <b>Your Referral Link</b>\n\n"
+            f"🔗 {link}\n\n"
+            f"👥 Total Referrals: <b>{count}</b>",
+            parse_mode="HTML"
+        )
         return
 
     promo = get_promo_by_title(msg)

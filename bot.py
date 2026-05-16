@@ -868,13 +868,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if promo:
         promo_id, title, image_url, caption = promo
         await send_promo(update, promo_id, image_url, caption)
-        return
         
         await update.message.reply_text(
             "⚠️ Sorry, I didn’t understand your message.\n\n"
             "👉 Please press /start to restart the system and continue."
         )
-
+        return
+        
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()

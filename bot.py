@@ -831,12 +831,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # referral keyword
-    if msg.lower() in ["referral", "invite", "邀请", "推荐"]:
-        if get_setting("referral_enabled") == "1":
-            await send_referral_info(update)
-        else:
-            await update.message.reply_text("Referral system is disabled.")
-        return
+if "referral" in msg.lower() or "邀请" in msg or "推荐" in msg or "invite" in msg.lower():
+    if get_setting("referral_enabled") == "1":
+        await send_referral_info(update)
+    else:
+        await update.message.reply_text("Referral system is disabled.")
+    return
 
     promo = get_promo_by_title(msg)
     if promo:
